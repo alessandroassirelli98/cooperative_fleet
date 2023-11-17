@@ -9,7 +9,7 @@ plt.style.use("seaborn")
 
 n_vehicles = 3
 n = 3
-T = 25
+T = 350
 dt = 0.1
 N = int(T/dt)
 
@@ -19,7 +19,7 @@ for i in range(n * n_vehicles):
     Q_arr.append(conf.sigma_u**2)
 Q_arr = np.diag(Q_arr)
 
-street = Street(0, 0, 2500, 0)
+street = Street(0, 0, 3000, 0)
 lanes = street.lanes
 
 vehicles_list = [Vehicle(street, lanes[0], 0, 10, dt)]
@@ -36,19 +36,15 @@ for i in range(n_vehicles):
 for v in vehicles_list:
     log[i][:, 0] = np.array([v.x,v.y])
 
+
+
+
+
+overtaking = False
 for t in range(N-1):
 
     u_vec = []
     gt = []
-    for i,v in enumerate(vehicles_list):
-        u = np.array([1, np.random.randn()])
-        if i == 1 and t>50 and t<100: u = np.array([15, np.random.randn()])
-        if i == 2 and t>120: u = np.array([20, np.random.randn()])
-        u_vec.append(u)
-        gt.append(np.array(v.S)) # Store last robot state
-
-        v.update(u, np.zeros((Q.shape[0])))
-        log[i][:, t+1] = np.array([v.x,v.y])
 
     A = np.zeros([n_vehicles, n_vehicles])
     for i in range(n_vehicles):
@@ -60,12 +56,64 @@ for t in range(N-1):
     O = utils.order_matrix(vehicles_list)
 
     sel_vector = np.arange(0, n_vehicles) # Create a vector to permute the states
-    sel_vector = (O @ sel_vector).astype(int)
-    ordered_vehicles = [vehicles_list[i] for i in sel_vector]
-    ordered_estimators = [estimators_list[i] for i in sel_vector]
+    initial2orderd = (O @ sel_vector).astype(int)
+    orderd2initial = (sel_vector @ O).astype(int)
+    ordered_vehicles = [vehicles_list[i] for i in initial2orderd]
+    ordered_estimators = [estimators_list[i] for i in initial2orderd]
+
+    # Compute control actions:
+    ordered_u = []
+    for i, (e,v) in enumerate(zip(ordered_estimators, ordered_vehicles)):
+        for j, vj in enumerate(ordered_vehicles):
+            if i == 0: 
+                vel = 10
+                break
+            if A[i,j] == 1:
+                x, y, d = e.get_vehicle_estimate(v, t)
+                xf, yf, df = e.get_vehicle_estimate(vj, t)
+                r = np.sqrt((xf-x)**2 + (yf-y)**2)
+
+                vel =  0.1 * (r - 50) 
+
+        omega = 2*(v.compute_steering() - v.delta)
+        ordered_u.append(np.array([vel, omega]))
+
+
+    initial_u = [ordered_u[orderd2initial.tolist().index(i)] for i in range(n_vehicles)]
+    initial_u = np.array(initial_u).flatten()
+
+    for i, (e,v) in enumerate(zip(estimators_list, vehicles_list)):
+        gt.append(np.array(v.S)) # Store last robot state
+        
+        if t == 100 and i == 1 and not overtaking:
+            overtaking = True
+            if t == 100: v.change_lane(1)
+
+        if i == 1 and overtaking:
+            x_vehicles = []
+            for vj in vehicles_list:
+                if vj != v:
+                    Px, _, _ = e.get_vehicle_P_estimate(vj, t)
+                    x, _, _ = e.get_vehicle_estimate(vj, t)
+                    if np.sqrt(Px) * 4 < 5: x_vehicles.append(x) # Store the vehicle position only if it is reasonably sure
+
+            x_max = max(x_vehicles)
+            x, _, _ = e.get_vehicle_estimate(v, t) # Ego estimate
+
+            if x > x_max + 120: 
+                overtaking=False # If the front vehicle has been overtaken, then stop
+                v.change_lane(0)
+
+            omega = initial_u[i*2+1]
+            v.update(np.array([20, omega]), np.zeros((Q.shape[0]))) # Accelerate
+        
+        else:
+            v.update(initial_u[ i*2: (i+1)*2], np.zeros((Q.shape[0])))
+        
+        log[i][:, t+1] = np.array([v.x,v.y])
+
 
     GT = np.array(gt).flatten()
-    u_array = np.array(u_vec).flatten()
 
     for i, e in enumerate(ordered_estimators):
         visible_vehicles = []
@@ -82,4 +130,4 @@ for t in range(N-1):
         R = np.diag(R_tmp)
         nu = np.random.multivariate_normal(np.zeros((Q_arr.shape[0])), Q_arr).T
         eps = np.random.multivariate_normal(np.zeros((R.shape[0])), R).T
-        e.run_filter(GT, u_array, nu, eps, t, Q_arr, R, visible_vehicles, visible_estimator)
+        e.run_filter(GT, initial_u, nu, eps, t, Q_arr, R, visible_vehicles, visible_estimator)

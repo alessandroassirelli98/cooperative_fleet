@@ -1,6 +1,7 @@
 import numpy as np
 from street import Street, Lane
 from estimator import Estimator
+from ppc import PPC
 import conf
 
 class Vehicle:
@@ -25,9 +26,32 @@ class Vehicle:
         
         self.S0 = np.array([self.x, self.y, self.delta])
         self.S = self.S0
-    
-    def update(self, u, nu):
 
+        self.steer_control = PPC()
+        self.steer_control.lookAheadDistance = 15
+        self.path = np.array([[lane.x_start, lane.y_start], [lane.x_end, lane.y_end]])
+    
+
+    def change_lane(self, lane):
+        if lane == 1:
+            x_target = self.x + self.street.lane_width
+            y_target = self.street.lane_width/2
+            self.path = np.array([[self.x, self.y], 
+                                [x_target, y_target], 
+                                [self.lane.x_end, y_target]]) # Change lane
+        elif lane == 0 :
+            x_target = self.x + self.street.lane_width
+            y_target = self.lane.y_end
+            self.path = np.array([[self.x, self.y], 
+                                [x_target, y_target], 
+                                [self.lane.x_end, self.lane.y_end]]) # Change lane
+
+    def compute_steering(self):
+        xy_position = np.array([self.x, self.y])
+        delta_des = self.steer_control.ComputeSteeringAngle(self.path, xy_position, self.delta, self.L)
+        return delta_des
+
+    def update(self, u, nu):
         self.S = self.f(self.S, u, nu)
 
         self.x = self.S[0]

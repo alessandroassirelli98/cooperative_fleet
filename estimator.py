@@ -102,11 +102,11 @@ class Estimator():
                 y1 = e.S_hat[1 + self.n * self.vehicle2idx[v], i]
                 d1 = e.S_hat[2 + self.n * self.vehicle2idx[v], i]
 
-            # z_tmp.append(x1)
-            # z_tmp.append(y1)
+            z_tmp.append(x1)
+            z_tmp.append(y1)
             z_tmp.append(d1)
-            # R_tmp.append(e.P[self.n * self.vehicle2idx[v], self.n * self.vehicle2idx[v], i])
-            # R_tmp.append(e.P[self.n * self.vehicle2idx[v] + 1, self.n * self.vehicle2idx[v] +1, i])
+            R_tmp.append(e.P[self.n * self.vehicle2idx[v], self.n * self.vehicle2idx[v], i])
+            R_tmp.append(e.P[self.n * self.vehicle2idx[v] + 1, self.n * self.vehicle2idx[v] +1, i])
             R_tmp.append(e.P[self.n * self.vehicle2idx[v] + 2, self.n * self.vehicle2idx[v] +2, i])
             
 
@@ -260,4 +260,18 @@ class Estimator():
         self.vehicle2idx = {}
         self.idx = all_vehicles.index(self.vehicle)
         for i, v in enumerate(all_vehicles):
-            if v is not self.vehicle: self.vehicle2idx[v] = i
+            self.vehicle2idx[v] = i
+
+    def get_vehicle_estimate(self, vehicle, i):
+        x1 = self.S_hat[self.n * self.vehicle2idx[vehicle], i]
+        y1 = self.S_hat[1 + self.n * self.vehicle2idx[vehicle], i]
+        d1 = self.S_hat[2 + self.n * self.vehicle2idx[vehicle], i]
+
+        return x1, y1, d1
+    
+    def get_vehicle_P_estimate(self, vehicle, i):
+        Px = self.P[self.n * self.vehicle2idx[vehicle], self.n * self.vehicle2idx[vehicle], i]
+        Py = self.P[1 + self.n * self.vehicle2idx[vehicle], 1 + self.n * self.vehicle2idx[vehicle], i]
+        Pd = self.P[2 + self.n * self.vehicle2idx[vehicle], 2 + self.n * self.vehicle2idx[vehicle], i]
+
+        return Px, Py, Pd
