@@ -53,14 +53,24 @@ for t in range(N-1):
     u_vec = []
     gt = []
 
-    # Sensing matrix
-    A_SENS = np.zeros([n_vehicles, n_vehicles])
-    for i in range(n_vehicles):
-        for j in range(i+1, n_vehicles):
-            A_SENS[i,j] = 1 if j <= i+1 else 0
-    A_SENS = A_SENS.transpose()
+
+
+    # Order of vehicles in the platoon
+    O = utils.order_matrix(vehicles_list)
+    sel_vector = np.arange(0, n_vehicles) # Create a vector to permute the states
+    initial2orderd = (O @ sel_vector).astype(int)
+    ordered_vehicles = [vehicles_list[i] for i in initial2orderd]
+    ordered_estimators = [estimators_list[i] for i in initial2orderd]
+    ordered_vehicles[0].lead = True # Tell the vehicle it is the first, for battery purposes
 
     # Sensing matrix
+    A_SENS = np.zeros([n_vehicles, n_vehicles])
+    for i,v in enumerate(vehicles_list):
+        for j,vj in enumerate(vehicles_list):
+            if ordered_vehicles.index(vj) == ordered_vehicles.index(v) - 1:
+                A_SENS[i,j] = 1 
+
+    # Commmunication matrix
     A_COMM = np.zeros([n_vehicles, n_vehicles])
     for i in range(n_vehicles):
         for j in range(i+1, n_vehicles):
@@ -70,38 +80,26 @@ for t in range(N-1):
     # A_COMM = A_SENS + A_SENS.T
     D = A_COMM @ np.ones(n_vehicles).T
 
-    # Order of vehicles in the platoon
-    O = utils.order_matrix(vehicles_list)
-    sel_vector = np.arange(0, n_vehicles) # Create a vector to permute the states
-    initial2orderd = (O @ sel_vector).astype(int)
-    orderd2initial = (sel_vector @ O).astype(int)
-    ordered_vehicles = [vehicles_list[i] for i in initial2orderd]
-    ordered_estimators = [estimators_list[i] for i in initial2orderd]
-    ordered_vehicles[0].lead = True # Tell the vehicle it is the first, for battery purposes
-
-
     # Optimal schedule for energy efficiency
     if t==0 : schedule = utils.compute_truck_scheduling(vehicles_list, ordered_vehicles)
 
     # Compute control actions:
     ordered_u = []
-    for i, (e,v) in enumerate(zip(ordered_estimators, ordered_vehicles)):
-        x, y, d = e.get_vehicle_estimate(v, t)
-        for j, vj in enumerate(ordered_vehicles):
-            if i == 0: 
+    for i, v in enumerate(vehicles_list):
+        x = S_hat_distributed[i][i * n, t-1]
+        y = S_hat_distributed[i][i * n + 1, t-1]
+        for j, vj in enumerate(vehicles_list):
+            if v == ordered_vehicles[0]: 
                 vel = v_cruise
                 break
+
             if A_SENS[i,j] == 1:
-                jt = j-1 if vj.overtaking and j!=0 else j
-                # xf, yf, df = e.get_vehicle_estimate(vt, t)
-                jt_ = initial2orderd[jt]
-                Px = P_distributed[i][jt*n + 0, jt*n+0, t-1]
-                xf = S_hat_distributed[i][jt_ * n + 0, t-1]
-                yf = S_hat_distributed[i][jt_ * n + 1, t-1]
+                Px = P_distributed[i][j*n + 0, j*n+0, t-1]
+                xf = S_hat_distributed[i][j * n + 0, t-1]
+                yf = S_hat_distributed[i][j * n + 1, t-1]
                 r = np.sqrt((xf-x)**2 + (yf-y)**2)
 
-                vel =  0.05 * (r - 50) if np.sqrt(Px) * 4 < 5 else v_cruise
-
+                vel =  0.1 * (r - 50) if np.sqrt(Px) * 4 < 5 else v_cruise
 
         if v in schedule:
             if x >= schedule[v]:
@@ -109,14 +107,10 @@ for t in range(N-1):
                 v.overtaking = True
                 if v.which_lane == 0 : v.change_lane(1)
                 x_vehicles = []
-                for j, vj in enumerate(ordered_vehicles):
+                for j, vj in enumerate(vehicles_list):
                     if vj != v:
-                        # Px, _, _ = e.get_vehicle_P_estimate(vj, t)
-                        # xf, _, _ = e.get_vehicle_estimate(vj, t)
-                        # if np.sqrt(Px) * 4 < 5: x_vehicles.append(xf) # Store the vehicle position only if it is reasonably sure
-                        jt_ = initial2orderd[j]
-                        Px = P_distributed[i][jt_*n + 0, jt_*n+0, t-1].copy()
-                        xf = S_hat_distributed[i][jt_*n + 0, t-1].copy()
+                        Px = P_distributed[i][j * n + 0, j * n+0, t-1].copy()
+                        xf = S_hat_distributed[i][j * n + 0, t-1].copy()
                         if np.sqrt(Px) * 4 < 5: 
                             x_vehicles.append(xf) # Store the vehicle position only if it is reasonably sure
 
@@ -130,7 +124,7 @@ for t in range(N-1):
         omega = 2*(v.compute_steering(x, y) - v.delta)
         ordered_u.append(np.array([vel, omega]))
 
-    initial_u = [ordered_u[orderd2initial[i]] for i in range(n_vehicles)]
+    initial_u = [ordered_u[i] for i in range(n_vehicles)]
     initial_u = np.array(initial_u).flatten()
 
     F = []
@@ -147,13 +141,13 @@ for t in range(N-1):
 
     GT = np.array(gt).flatten()
 
-    for i, e in enumerate(ordered_estimators):
+    for i, e in enumerate(estimators_list):
         visible_vehicles = []
         visible_estimator = []
         R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2]
-        for j, vj in enumerate(ordered_vehicles):
+        for j, vj in enumerate(vehicles_list):
             if A_SENS[i,j] == 1:
-                ej = ordered_estimators[j]
+                ej = estimators_list[j]
                 visible_vehicles.append(vj)
                 visible_estimator.append(ej)
 
