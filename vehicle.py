@@ -30,7 +30,14 @@ class Vehicle:
         self.steer_control = PPC()
         self.steer_control.lookAheadDistance = 15
         self.path = np.array([[lane.x_start, lane.y_start], [lane.x_end, lane.y_end]])
-    
+
+        self.starting_battery = 100
+        self.life = self.starting_battery
+        self.c0 = 100/100 / 1000  
+        self.c1 = 100/100 / 1000
+        self.overtaking = False
+        self.which_lane = 0
+        self.lead = False
 
     def change_lane(self, lane):
         if lane == 1:
@@ -39,25 +46,33 @@ class Vehicle:
             self.path = np.array([[self.x, self.y], 
                                 [x_target, y_target], 
                                 [self.lane.x_end, y_target]]) # Change lane
+            self.which_lane = 1
         elif lane == 0 :
             x_target = self.x + self.street.lane_width
             y_target = self.lane.y_end
             self.path = np.array([[self.x, self.y], 
                                 [x_target, y_target], 
                                 [self.lane.x_end, self.lane.y_end]]) # Change lane
+            self.which_lane = 0
+            
 
-    def compute_steering(self):
-        xy_position = np.array([self.x, self.y])
-        delta_des = self.steer_control.ComputeSteeringAngle(self.path, xy_position, self.delta, self.L)
+    def compute_steering(self, x, y):
+        delta_des = self.steer_control.ComputeSteeringAngle(self.path, np.array([x,y]), self.delta, self.L)
         return delta_des
 
     def update(self, u, nu):
         self.S = self.f(self.S, u, nu)
 
+
+        self.s_ = self.s
         self.x = self.S[0]
         self.y = self.S[1]
         self.delta = self.S[2] 
         self.s = self.street.xy_to_s(self.x, self.y)
+
+        self.life -=  ( self.s - self.s_ ) * (self.c0 + self.c1 if self.lead else self.c0)
+        self.lead = False
+
         # self.alpha = self.S[3] 
         # self.v = self.S[4] 
         # self.a = self.S[5]

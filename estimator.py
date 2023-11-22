@@ -30,100 +30,75 @@ class Estimator():
         # self.S_hat[:, i+1] = self.f(self.S_hat[:, i], u, nu)
 
         # Sigma points
-        mean = self.S_hat[:, i]
-        sigma_pts = []
-        L = np.linalg.cholesky((self.n_state) * self.P[:,:, i])
-        for j in range(self.n_state):
-            sigma_pts.append(mean - L[:, j])
-            sigma_pts.append(mean + L[:, j])
+        # mean = self.S_hat[:, i]
+        # sigma_pts = []
+        # L = np.linalg.cholesky((self.n_state) * self.P[:,:, i])
+        # for j in range(self.n_state):
+        #     sigma_pts.append(mean - L[:, j])
+        #     sigma_pts.append(mean + L[:, j])
 
-        sigma_uns = []
-        weight = 1/(2 * self.n_state)
-        for j in range(2 * self.n_state):
-            sigma_uns.append(self.f(sigma_pts[j], u, nu))
+        # sigma_uns = []
+        # weight = 1/(2 * self.n_state)
+        # for j in range(2 * self.n_state):
+        #     sigma_uns.append(self.f(sigma_pts[j], u, nu))
 
-        self.S_hat[:, i+1] = weight * sum([x for x in sigma_uns])
-        self.P[:,:, i+1] = Q + weight * sum([((np.atleast_2d(x - self.S_hat[:, i+1]).T @ np.atleast_2d(x - self.S_hat[:, i+1]))) for x in sigma_uns])
+        # self.S_hat[:, i+1] = weight * sum([x for x in sigma_uns])
+        # self.P[:,:, i+1] = Q + weight * sum([((np.atleast_2d(x - self.S_hat[:, i+1]).T @ np.atleast_2d(x - self.S_hat[:, i+1]))) for x in sigma_uns])
 
-        z_sigma = []    
-        for j in range(2 * self.n_state):
-            zi, R  = self.h(i, sigma_pts[j], eps*0, visible_vehicles, vsible_estimator, measuring=False)
-            z_sigma.append(zi)
+        # z_sigma = []    
+        # for j in range(2 * self.n_state):
+        #     zi = self.h(sigma_pts[j], eps*0, visible_vehicles, vsible_estimator, measuring=False)
+        #     z_sigma.append(zi)
         
-        z, R = self.h(i, GT, eps, visible_vehicles, vsible_estimator)
-        mu_z = weight * sum([x for x in z_sigma])
-        s = R + weight * sum([((np.atleast_2d(z-mu_z).T @ np.atleast_2d(z-mu_z))) for z in z_sigma])
-        Pxz =  weight * sum([((np.atleast_2d(x - self.S_hat[:, i+1]).T @ np.atleast_2d(z - mu_z))) for (x,z) in zip(sigma_uns, z_sigma)])
-        W = Pxz @ np.linalg.inv(s)
+        # z = self.h(GT, eps, visible_vehicles, vsible_estimator)
+        # mu_z = weight * sum([x for x in z_sigma])
+        # s = R + weight * sum([((np.atleast_2d(z-mu_z).T @ np.atleast_2d(z-mu_z))) for z in z_sigma])
+        # Pxz =  weight * sum([((np.atleast_2d(x - self.S_hat[:, i+1]).T @ np.atleast_2d(z - mu_z))) for (x,z) in zip(sigma_uns, z_sigma)])
+        # W = Pxz @ np.linalg.inv(s)
         
-        self.S_hat[:, i+1] += W @ (z - mu_z)
-        self.P[:,:, i+1] = self.P[:,:, i+1].copy() - W @ s @ W.T
-
-        # R = self.make_h_EKF(i, self.S_sym, visible_vehicles, vsible_estimator)
-        # G = self.G_fun(self.S_hat[:,i], u).full()
-        # A = self.A_fun(self.S_hat[:,i], u, nu*0).full()
+        # self.S_hat[:, i+1] += W @ (z - mu_z)
+        # self.P[:,:, i+1] = self.P[:,:, i+1].copy() - W @ s @ W.T
+ 
+        self.make_h_EKF(self.S_sym, visible_vehicles, vsible_estimator)
+        G = self.G_fun(self.S_hat[:,i], u).full()
+        A = self.A_fun(self.S_hat[:,i], u, nu*0).full()
     
-        # # Prediction step
-        # self.S_hat[:,i+1] = self.f_fun(self.S_hat[:,i], u, nu).full().flatten()
-        # self.P[:,:, i+1] = A @ self.P[:,:,i] @ A.T + G @ Q @ G.T
+        # Prediction step
+        self.S_hat[:,i+1] = self.f_fun(self.S_hat[:,i], u, nu).full().flatten()
+        self.P[:,:, i+1] = A @ self.P[:,:,i] @ A.T + G @ Q @ G.T
 
-        # # Update step
-        # H = self.H_fun(self.S_hat[:,i+1]).full()
-        # z, _ = self.h(i, GT, eps, visible_vehicles, vsible_estimator)
+        # Update step
+        H = self.H_fun(self.S_hat[:,i+1]).full()
+        # z = self.h(i, GT, eps, visible_vehicles, vsible_estimator)
+        z = self.h_fun(GT).full().flatten()
 
-        # S = H @ self.P[:,:,i+1] @ H.T + R
-        # w = self.P[:,:,i+1] @ H.T @ np.linalg.inv(S)
-        # self.S_hat[:,i+1] = self.S_hat[:,i+1] + (w @ (z.T - self.h_fun(self.S_hat[:,i+1]).full().flatten()))
-        # self.P[:,:,i+1] =  (np.eye(self.P.shape[0]) - w @ H) @ self.P[:,:,i+1]
+        z += eps
+        S = H @ self.P[:,:,i+1] @ H.T + R
+        w = self.P[:,:,i+1] @ H.T @ np.linalg.inv(S)
+        self.S_hat[:,i+1] = self.S_hat[:,i+1] + (w @ (z.T - self.h_fun(self.S_hat[:,i+1]).full().flatten()))
+        self.P[:,:,i+1] =  (np.eye(self.P.shape[0]) - w @ H) @ self.P[:,:,i+1]
 
 
-    def h(self, i, S, eps, visible_vehicles, visible_estimator, measuring = False):
-        x = S[0 + self.idx * self.n] + eps[0]
-        y = S[1 + self.idx * self.n] + eps[1]
-        d = S[2 + self.idx * self.n] + eps[2]
+    def h(self, S, eps, visible_vehicles, visible_estimator, measuring = False):
+        x = S[0 + self.idx * self.n]
+        y = S[1 + self.idx * self.n]
+        d = S[2 + self.idx * self.n]
 
         z_tmp = [x, y, d]
-        R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2]
-
         for (e,v) in zip(visible_estimator, visible_vehicles):
             # Meare the other vehicle via lidar
             x1 = S[self.n * self.vehicle2idx[v]]
             y1 = S[1 + self.n * self.vehicle2idx[v]]
-            d1 = S[2 + self.n * self.vehicle2idx[v]]
-
-            z_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2) + eps[3])
-            z_tmp.append(cas.arctan2(((y1-y)),(x1-x))-d + eps[4])
-            R_tmp.append(conf.sigma_radar**2)
-            R_tmp.append(conf.sigma_radar**2)
-
-            # Get front vehicle information via communicatio
-            if measuring:
-                x1 = e.S_hat[self.n * self.vehicle2idx[v], i]
-                y1 = e.S_hat[1 + self.n * self.vehicle2idx[v], i]
-                d1 = e.S_hat[2 + self.n * self.vehicle2idx[v], i]
-
-            z_tmp.append(x1)
-            z_tmp.append(y1)
-            z_tmp.append(d1)
-            R_tmp.append(e.P[self.n * self.vehicle2idx[v], self.n * self.vehicle2idx[v], i])
-            R_tmp.append(e.P[self.n * self.vehicle2idx[v] + 1, self.n * self.vehicle2idx[v] +1, i])
-            R_tmp.append(e.P[self.n * self.vehicle2idx[v] + 2, self.n * self.vehicle2idx[v] +2, i])
+            # z_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2))
+            # z_tmp.append(cas.arctan2(((y1-y)),(x1-x))-d)
             
-
-        R = np.diag(R_tmp)
-        z = np.array(z_tmp).flatten()
+        z = np.array(z_tmp) + eps
 
         # x1_b = x1 * np.cos(d) + y1 * np.sin(d) - x*np.cos(d) - y * np.sin(d)
         # y1_b = -x1 * np.sin(d) + y1 * np.cos(d) + x*np.sin(d) - y * np.cos(d)
 
-        return z, R
+        return z
     
-    def H(self, S):
-        h_x = np.zeros((2, self.n_state))
-        h_x[0,0] = 1
-        h_x[1,1] = 1
-
-        return h_x
     
     # def f(self, S, U, nu):
     #     f = []
@@ -165,42 +140,42 @@ class Estimator():
         f = np.array(f).flatten()
         return f
     
-    # def make_h_EKF(self, i, S_sym, visible_vehicles, visible_estimator):  
-    #     x = S_sym[0 + self.idx * self.n]
-    #     y = S_sym[1 + self.idx * self.n]
-    #     d = S_sym[2 + self.idx * self.n]
+    def make_h_EKF(self, S_sym, visible_vehicles, visible_estimator):  
+        x = S_sym[0 + self.idx * self.n]
+        y = S_sym[1 + self.idx * self.n]
+        d = S_sym[2 + self.idx * self.n]
 
-    #     h_tmp = [x, y, d]
-    #     R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2]
+        h_tmp = [x, y, d]
+        R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2]
 
-    #     for (v, e) in zip(visible_vehicles, visible_estimator):
-    #         x1 = S_sym[self.n * self.vehicle2idx[v]]
-    #         y1 = S_sym[1 + self.n * self.vehicle2idx[v]]
-    #         d1 = S_sym[2 + self.n * self.vehicle2idx[v], i]
+        for (v, e) in zip(visible_vehicles, visible_estimator):
+            x1 = S_sym[self.n * self.vehicle2idx[v]]
+            y1 = S_sym[1 + self.n * self.vehicle2idx[v]]
+            d1 = S_sym[2 + self.n * self.vehicle2idx[v]]
 
 
-    #         h_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2))
-    #         h_tmp.append(cas.arctan2((y1-y),(x1-x))-d)
+            # h_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2))
+            # h_tmp.append(cas.arctan2((y1-y),(x1-x))-d)
 
-    #         R_tmp.append(conf.sigma_radar**2)
-    #         R_tmp.append(conf.sigma_radar**2)
+            # R_tmp.append(conf.sigma_radar**2)
+            # R_tmp.append(conf.sigma_radar**2)
 
-    #         # Get front vehicle information via communicatio
-    #         h_tmp.append(x1)
-    #         h_tmp.append(y1)
-    #         h_tmp.append(d1)
-    #         R_tmp.append(e.P[self.n * self.vehicle2idx[v], self.n * self.vehicle2idx[v], i])
-    #         R_tmp.append(e.P[self.n * self.vehicle2idx[v] + 1, self.n * self.vehicle2idx[v] +1, i])
-    #         R_tmp.append(e.P[self.n * self.vehicle2idx[v] + 2, self.n * self.vehicle2idx[v] +2, i])
+            # Get front vehicle information via communicatio
+            # h_tmp.append(x1)
+            # h_tmp.append(y1)
+            # h_tmp.append(d1)
+            # R_tmp.append(e.P[self.n * self.vehicle2idx[v], self.n * self.vehicle2idx[v], i])
+            # R_tmp.append(e.P[self.n * self.vehicle2idx[v] + 1, self.n * self.vehicle2idx[v] +1, i])
+            # R_tmp.append(e.P[self.n * self.vehicle2idx[v] + 2, self.n * self.vehicle2idx[v] +2, i])
 
-    #     h=[]
-    #     for e in h_tmp: h = cas.vertcat(h, e)
+        h=[]
+        for e in h_tmp: h = cas.vertcat(h, e)
 
-    #     H = cas.jacobian(h, self.S_sym)
-    #     self.H_fun = cas.Function('H_fun', [self.S_sym], [H])
-    #     self.h_fun = cas.Function('h_fun', [self.S_sym], [h])  
-    #     R = np.diag(R_tmp)
-    #     return R
+        H = cas.jacobian(h, self.S_sym)
+        self.H_fun = cas.Function('H_fun', [self.S_sym], [H])
+        self.h_fun = cas.Function('h_fun', [self.S_sym], [h])  
+        R = np.diag(R_tmp)
+        
     
     # def make_f_EKF(self, S_sym, U_sym, nu_sym):
     #     f_tmp = []
