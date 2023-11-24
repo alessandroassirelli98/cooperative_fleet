@@ -156,8 +156,8 @@ class Estimator():
             d1 = S_sym[2 + self.n * self.vehicle2idx[v]]
 
 
-            h_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2))
-            h_tmp.append(cas.arctan2((y1-y),(x1-x))-d)
+            # h_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2))
+            # h_tmp.append(cas.arctan2((y1-y),(x1-x))-d)
 
 
             # R_tmp.append(conf.sigma_radar**2)

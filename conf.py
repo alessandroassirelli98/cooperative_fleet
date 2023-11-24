@@ -7,6 +7,10 @@ kp = 0.2
 kd = 0.7
 kdd = 0
 
+pid_kp = 0.1
+pid_kd = 0.1
+pid_ki = 0.1
+
 tau = 0.1
 L = 5
 
@@ -16,7 +20,7 @@ r = 30
 v_max = 20
 a_max = 60
 
-comm_range = 1000
+comm_range = 200
 lidar_range = 150
 comm_prob = 1
 

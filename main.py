@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from vehicle import Vehicle
 from estimator import Estimator
+from pid import PID
 import utils
 from street import Street, Lane
 import conf
@@ -29,8 +30,9 @@ vehicles_list = [Vehicle(street, lanes[0], 0, v_cruise, dt)]
 vehicles_list[0].c1 = 100/1000
 
 estimators_list = []
+PIDs = []
 [estimators_list.append(Estimator(v, n, n_vehicles, N)) for v in vehicles_list]
-
+[PIDs.append(PID(conf.pid_kp, conf.pid_kd, conf.pid_ki)) for _ in range(n_vehicles)]
 for e in estimators_list: e.set_fleet(vehicles_list)
 
 log = []
@@ -76,7 +78,7 @@ for t in range(N-1):
     for i in range(n_vehicles):
         for j in range(i+1, n_vehicles):
             # A_COMM[i,j] = 1 if np.random.rand() < 0.5 else 0
-            if np.abs(vehicles_list[i].s - vehicles_list[j].s) < 200 and np.random.rand() < conf.comm_prob:
+            if np.abs(vehicles_list[i].s - vehicles_list[j].s) < conf.comm_range and np.random.rand() < conf.comm_prob:
                 A_COMM[i,j] = 1
     A_COMM = A_COMM + A_COMM.T
     # A_COMM = A_SENS + A_SENS.T
@@ -101,7 +103,10 @@ for t in range(N-1):
                 yf = S_hat_distributed[i][j * n + 1, t-1]
                 r = np.sqrt((xf-x)**2 + (yf-y)**2)
 
-                vel =  0.1 * (r - 50) if np.sqrt(Px) * 4 < 5 else v_cruise
+                if np.sqrt(Px) * 4 < 5:
+                    vel = PIDs[i].compute(r - 100, dt)
+                else:
+                    vel = v_cruise
 
         if v in schedule:
             if x >= schedule[v]:
@@ -149,8 +154,8 @@ for t in range(N-1):
         for j, vj in enumerate(vehicles_list):
             if A_SENS[i,j] == 1:
                 visible_vehicles.append(vj)
-                R_tmp.append(conf.sigma_radar **2)
-                R_tmp.append(conf.sigma_radar **2)
+                # R_tmp.append(conf.sigma_radar **2)
+                # R_tmp.append(conf.sigma_radar **2)
 
         R = np.diag(R_tmp)
         nu = np.random.multivariate_normal(np.zeros((Q_arr.shape[0])), Q_arr).T
