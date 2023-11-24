@@ -23,10 +23,12 @@ class Estimator():
             self.nu_sym = cas.SX.sym("U", self.n_state)
             self.make_f_EKF(self.S_sym, self.U_sym, self.nu_sym)
 
+        self.log_t = []
+
        
 
 
-    def run_filter(self, GT, u, nu, eps, i, Q, R, visible_vehicles, vsible_estimator):
+    def run_filter(self, GT, u, nu, eps, i, Q, R, visible_vehicles):
         # self.S_hat[:, i+1] = self.f(self.S_hat[:, i], u, nu)
 
         # Sigma points
@@ -59,7 +61,7 @@ class Estimator():
         # self.S_hat[:, i+1] += W @ (z - mu_z)
         # self.P[:,:, i+1] = self.P[:,:, i+1].copy() - W @ s @ W.T
  
-        self.make_h_EKF(self.S_sym, visible_vehicles, vsible_estimator)
+        self.make_h_EKF(self.S_sym, visible_vehicles)
         G = self.G_fun(self.S_hat[:,i], u).full()
         A = self.A_fun(self.S_hat[:,i], u, nu*0).full()
     
@@ -89,8 +91,8 @@ class Estimator():
             # Meare the other vehicle via lidar
             x1 = S[self.n * self.vehicle2idx[v]]
             y1 = S[1 + self.n * self.vehicle2idx[v]]
-            # z_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2))
-            # z_tmp.append(cas.arctan2(((y1-y)),(x1-x))-d)
+            z_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2))
+            z_tmp.append(cas.arctan2(((y1-y)),(x1-x))-d)
             
         z = np.array(z_tmp) + eps
 
@@ -140,7 +142,7 @@ class Estimator():
         f = np.array(f).flatten()
         return f
     
-    def make_h_EKF(self, S_sym, visible_vehicles, visible_estimator):  
+    def make_h_EKF(self, S_sym, visible_vehicles):  
         x = S_sym[0 + self.idx * self.n]
         y = S_sym[1 + self.idx * self.n]
         d = S_sym[2 + self.idx * self.n]
@@ -148,14 +150,15 @@ class Estimator():
         h_tmp = [x, y, d]
         R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2]
 
-        for (v, e) in zip(visible_vehicles, visible_estimator):
+        for v in visible_vehicles:
             x1 = S_sym[self.n * self.vehicle2idx[v]]
             y1 = S_sym[1 + self.n * self.vehicle2idx[v]]
             d1 = S_sym[2 + self.n * self.vehicle2idx[v]]
 
 
-            # h_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2))
-            # h_tmp.append(cas.arctan2((y1-y),(x1-x))-d)
+            h_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2))
+            h_tmp.append(cas.arctan2((y1-y),(x1-x))-d)
+
 
             # R_tmp.append(conf.sigma_radar**2)
             # R_tmp.append(conf.sigma_radar**2)

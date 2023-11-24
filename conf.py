@@ -18,6 +18,7 @@ a_max = 60
 
 comm_range = 1000
 lidar_range = 150
+comm_prob = 1
 
 P_gps = 0.5
 P_radar = 0.0
@@ -32,7 +33,7 @@ sigma_mag = 1e-2
 sigma_beta = 1e-2
 sigma_x_gps = 1e-2
 sigma_y_gps = 1e-2
-sigma_radar = 1e-2
+sigma_radar = 1e-1
 sigma_lidar_rho = 1e-1
 sigma_lidar_phi = 1e-2
 

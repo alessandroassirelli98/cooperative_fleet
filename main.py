@@ -67,15 +67,17 @@ for t in range(N-1):
     A_SENS = np.zeros([n_vehicles, n_vehicles])
     for i,v in enumerate(vehicles_list):
         for j,vj in enumerate(vehicles_list):
-            if ordered_vehicles.index(vj) == ordered_vehicles.index(v) - 1:
-                A_SENS[i,j] = 1 
+            if vj != v and v != ordered_vehicles[0]: 
+                if ordered_vehicles.index(vj) == ordered_vehicles.index(v) - 1:
+                    A_SENS[i,j] = 1
 
     # Commmunication matrix
     A_COMM = np.zeros([n_vehicles, n_vehicles])
     for i in range(n_vehicles):
         for j in range(i+1, n_vehicles):
             # A_COMM[i,j] = 1 if np.random.rand() < 0.5 else 0
-            A_COMM[i,j] = 1 if np.abs(vehicles_list[i].s - vehicles_list[j].s) < 200 else 0
+            if np.abs(vehicles_list[i].s - vehicles_list[j].s) < 200 and np.random.rand() < conf.comm_prob:
+                A_COMM[i,j] = 1
     A_COMM = A_COMM + A_COMM.T
     # A_COMM = A_SENS + A_SENS.T
     D = A_COMM @ np.ones(n_vehicles).T
@@ -133,11 +135,10 @@ for t in range(N-1):
         F.append(np.zeros((n * n_vehicles, n* n_vehicles)))
         a.append(np.zeros((n* n_vehicles)))
 
-    for i, (e,v) in enumerate(zip(estimators_list, vehicles_list)):
+    for i, v in enumerate(vehicles_list):
         gt.append(np.array(v.S)) # Store last robot state
         v.update(initial_u[ i*2: (i+1)*2], np.zeros((Q.shape[0])))
         log[i][:, t+1] = np.array([v.x, v.y])
-
 
     GT = np.array(gt).flatten()
 
@@ -147,14 +148,14 @@ for t in range(N-1):
         R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2]
         for j, vj in enumerate(vehicles_list):
             if A_SENS[i,j] == 1:
-                ej = estimators_list[j]
                 visible_vehicles.append(vj)
-                visible_estimator.append(ej)
+                R_tmp.append(conf.sigma_radar **2)
+                R_tmp.append(conf.sigma_radar **2)
 
         R = np.diag(R_tmp)
         nu = np.random.multivariate_normal(np.zeros((Q_arr.shape[0])), Q_arr).T
         eps = np.random.multivariate_normal(np.zeros((R.shape[0])), R).T
-        e.run_filter(GT, initial_u, nu, eps, t, Q_arr, R, visible_vehicles, visible_estimator)
+        e.run_filter(GT, initial_u, nu, eps, t, Q_arr, R, visible_vehicles)
 
     for i,(e,v) in enumerate(zip(estimators_list, vehicles_list)):
 
@@ -165,7 +166,7 @@ for t in range(N-1):
         F[i] = H.T @ np.linalg.inv(H @ P @ H.T) @ H
         a[i] = H.T @ np.linalg.inv(H @ P @ H.T) @ zi
 
-    m=100
+    m=5
     for _ in range(m):
         Fstore = F.copy()
         aStore = a.copy()

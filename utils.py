@@ -44,7 +44,7 @@ def compute_truck_scheduling(vehicles_list, ordered_vehicles):
         c1s = [v.c1 for v in vehicles_list]
         ls = [v.life for v in vehicles_list]
         S = max([v.street.length - v.x for v in vehicles_list])
-
+        schedule = {}
         if S > 0:
             n = len(vehicles_list)
             A = np.zeros((2*n, 2*n))
@@ -130,7 +130,6 @@ def compute_truck_scheduling(vehicles_list, ordered_vehicles):
 
             vehicles = np.array([v for v in vehicles_list])
             vehicles = vehicles[order]
-            schedule = {}
 
             # s = 0
             # for i,v in enumerate(vehicles):
