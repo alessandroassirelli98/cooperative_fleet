@@ -14,6 +14,7 @@ T = 350
 dt = 0.1
 N = int(T/dt)
 
+schedule = []
 v_cruise = 10
 
 Q = np.eye(n) * conf.sigma_u**2
@@ -42,20 +43,17 @@ for i in range(n_vehicles):
 for v in vehicles_list:
     log[i][:, 0] = np.array([v.x,v.y])
 
-S_hat_distributed = []
-P_distributed = []
+S_hat_DKF = []
+P_DKF = []
 for i in range(n_vehicles):
-    S_hat_distributed.append(np.zeros((n * n_vehicles, N)))
-    P_distributed.append(np.zeros((n * n_vehicles, n * n_vehicles, N)))
-
-    P_distributed[i][:,:,0] = np.eye(n * n_vehicles) * 10
+    S_hat_DKF.append(np.zeros((n * n_vehicles, N)))
+    P_DKF.append(np.zeros((n * n_vehicles, n * n_vehicles, N)))
+    P_DKF[i][:,:,0] = np.eye(n * n_vehicles) * 10
 
 for t in range(N-1):
 
     u_vec = []
     gt = []
-
-
 
     # Order of vehicles in the platoon
     O = utils.order_matrix(vehicles_list)
@@ -77,11 +75,11 @@ for t in range(N-1):
     A_COMM = np.zeros([n_vehicles, n_vehicles])
     for i in range(n_vehicles):
         for j in range(i+1, n_vehicles):
-            # A_COMM[i,j] = 1 if np.random.rand() < 0.5 else 0
-            if np.abs(vehicles_list[i].s - vehicles_list[j].s) < conf.comm_range and np.random.rand() < conf.comm_prob:
+            if not np.random.rand() < conf.comm_prob: break
+            # if t<1000 or t>1500: break
+            if np.abs(vehicles_list[i].s - vehicles_list[j].s) < conf.comm_range:
                 A_COMM[i,j] = 1
     A_COMM = A_COMM + A_COMM.T
-    # A_COMM = A_SENS + A_SENS.T
     D = A_COMM @ np.ones(n_vehicles).T
 
     # Optimal schedule for energy efficiency
@@ -90,21 +88,21 @@ for t in range(N-1):
     # Compute control actions:
     ordered_u = []
     for i, v in enumerate(vehicles_list):
-        x = S_hat_distributed[i][i * n, t-1]
-        y = S_hat_distributed[i][i * n + 1, t-1]
+        x = S_hat_DKF[i][i * n, t]
+        y = S_hat_DKF[i][i * n + 1, t]
         for j, vj in enumerate(vehicles_list):
             if v == ordered_vehicles[0]: 
                 vel = v_cruise
                 break
 
             if A_SENS[i,j] == 1:
-                Px = P_distributed[i][j*n + 0, j*n+0, t-1]
-                xf = S_hat_distributed[i][j * n + 0, t-1]
-                yf = S_hat_distributed[i][j * n + 1, t-1]
+                Px = P_DKF[i][j*n + 0, j*n+0, t]
+                xf = S_hat_DKF[i][j * n + 0, t]
+                yf = S_hat_DKF[i][j * n + 1, t]
                 r = np.sqrt((xf-x)**2 + (yf-y)**2)
 
                 if np.sqrt(Px) * 4 < 5:
-                    vel = PIDs[i].compute(r - 100, dt)
+                    vel = PIDs[i].compute(r - 150, dt)
                 else:
                     vel = v_cruise
 
@@ -116,8 +114,8 @@ for t in range(N-1):
                 x_vehicles = []
                 for j, vj in enumerate(vehicles_list):
                     if vj != v:
-                        Px = P_distributed[i][j * n + 0, j * n+0, t-1].copy()
-                        xf = S_hat_distributed[i][j * n + 0, t-1].copy()
+                        Px = P_DKF[i][j * n + 0, j * n+0, t].copy()
+                        xf = S_hat_DKF[i][j * n + 0, t].copy()
                         if np.sqrt(Px) * 4 < 5: 
                             x_vehicles.append(xf) # Store the vehicle position only if it is reasonably sure
 
@@ -128,7 +126,7 @@ for t in range(N-1):
                         v.change_lane(0)
                         del schedule[v]
          
-        omega = 2*(v.compute_steering(x, y) - v.delta)
+        omega = (v.compute_steering(x, y) - v.delta)
         ordered_u.append(np.array([vel, omega]))
 
     initial_u = [ordered_u[i] for i in range(n_vehicles)]
@@ -154,36 +152,46 @@ for t in range(N-1):
         for j, vj in enumerate(vehicles_list):
             if A_SENS[i,j] == 1:
                 visible_vehicles.append(vj)
-                # R_tmp.append(conf.sigma_radar **2)
-                # R_tmp.append(conf.sigma_radar **2)
+                R_tmp.append(conf.sigma_radar **2)
+                R_tmp.append(conf.sigma_radar **2)
+                pass
 
         R = np.diag(R_tmp)
         nu = np.random.multivariate_normal(np.zeros((Q_arr.shape[0])), Q_arr).T
         eps = np.random.multivariate_normal(np.zeros((R.shape[0])), R).T
         e.run_filter(GT, initial_u, nu, eps, t, Q_arr, R, visible_vehicles)
+        
+        
+        
+        zi = e.h_fun(GT).full().flatten() + eps
+        H = e.H_fun(S_hat_DKF[i][:,t]).full()
 
-    for i,(e,v) in enumerate(zip(estimators_list, vehicles_list)):
+        F[i] = H.T @ np.linalg.inv(R.copy()) @ H
+        a[i] = H.T @ np.linalg.inv(R.copy()) @ zi
 
-        H = np.eye(n * n_vehicles)
 
-        zi = e.S_hat[:, t].copy()
-        P = e.P[:,:, t].copy()
-        F[i] = H.T @ np.linalg.inv(H @ P @ H.T) @ H
-        a[i] = H.T @ np.linalg.inv(H @ P @ H.T) @ zi
-
-    m=5
+    m=10
     for _ in range(m):
         Fstore = F.copy()
         aStore = a.copy()
         for i in range(n_vehicles):
             for j in range(n_vehicles):
                 if A_COMM[i,j] == 1:
-                    F[i] = F[i] + 1/(1+max(D[i], D[j])) * (Fstore[j] - Fstore[i])
-                    a[i] = a[i] + 1/(1+max(D[i], D[j])) * (aStore[j] - aStore[i])
+                    F[i] = F[i] + 1/(1+max(D)) * (Fstore[j] - Fstore[i])
+                    a[i] = a[i] + 1/(1+max(D)) * (aStore[j] - aStore[i])
     
-    for i in range(n_vehicles):
-        S_hat_distributed[i][:, t] = np.linalg.inv(F[i]) @ a[i]
-        P_distributed[i][:,:, t] = np.linalg.inv(F[i])
+    for i, (e,v) in enumerate(zip(estimators_list, vehicles_list)):
+        G = e.G_fun(S_hat_DKF[i][:,t], initial_u).full()
+        A = e.A_fun(S_hat_DKF[i][:,t], initial_u, nu*0).full()
+        H = e.H_fun(S_hat_DKF[i][:,t+1]).full()
+        nu = np.random.multivariate_normal(np.zeros((Q_arr.shape[0])), Q_arr).T
+
+        pred = e.f_fun(S_hat_DKF[i][:,t], initial_u, nu).full().flatten()
+        
+        M = np.linalg.inv(np.linalg.inv(P_DKF[i][:,:, t]) + F[i])
+        S_hat_DKF[i][:, t+1] = pred + M @ (a[i]- F[i] @ S_hat_DKF[i][:, t])
+        P_DKF[i][:,:, t+1] = A @ M @ A.T + G @ Q_arr @ G.T
+
 
 
 plt.figure()
@@ -191,64 +199,61 @@ for i in range(n_vehicles):
     plt.plot(log[i][0,1:])
 
 times = np.arange(0,N)
-# for i in range(n_vehicles):
-#     plt.figure()
-#     plt.title("Vehicle: " + str(i))
-#     cix1 = np.sqrt(P_distributed[i][1, 1, :])
-#     cix2 = np.sqrt(P_distributed[i][4, 4, :])
-#     cix3 = np.sqrt(P_distributed[i][7, 7, :])
-#     mul = 4
-#     plt.subplot(3,1,1)
-#     y = S_hat_distributed[i][1, :]
-#     y_gt = log[0][1,:]
-#     plt.plot(times, y)
-#     plt.plot(times, y_gt)
-#     plt.fill_between(times, (y-mul*cix1), (y+mul*cix1), color="red", alpha=0.2)
-
-#     plt.subplot(3,1,2)
-#     y = S_hat_distributed[i][4, :]
-#     y_gt = log[1][1,:]
-#     plt.plot(times, y)
-#     plt.plot(times, y_gt)
-#     plt.fill_between(times, (y-mul*cix2), (y+mul*cix2), color="red", alpha=0.2)
-
-#     plt.subplot(3,1,3)
-#     y = S_hat_distributed[i][7, :]
-#     y_gt = log[2][1,:]
-#     plt.plot(times, y)
-#     plt.plot(times, y_gt)
-#     plt.fill_between(times, (y-mul*cix3), (y+mul*cix3), color="red", alpha=0.2)
-
-
-
 for i in range(n_vehicles):
     plt.figure()
     plt.title("Vehicle: " + str(i))
-    cix1 = np.sqrt(P_distributed[i][0, 0, :])
-    cix2 = np.sqrt(P_distributed[i][3, 3, :])
-    cix3 = np.sqrt(P_distributed[i][6, 6, :])
+    cix1 = np.sqrt(P_DKF[i][0, 0, :])
+    cix2 = np.sqrt(P_DKF[i][3, 3, :])
+    cix3 = np.sqrt(P_DKF[i][6, 6, :])
     mul = 4
     plt.subplot(3,1,1)
-    y = S_hat_distributed[i][0, :]
+    y = S_hat_DKF[i][0, :]
     y_gt = log[0][0,:]
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix1), (y+mul*cix1), color="red", alpha=0.2)
 
     plt.subplot(3,1,2)
-    y = S_hat_distributed[i][3, :]
+    y = S_hat_DKF[i][3, :]
     y_gt = log[1][0,:]
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix2), (y+mul*cix2), color="red", alpha=0.2)
 
     plt.subplot(3,1,3)
-    y = S_hat_distributed[i][6, :]
+    y = S_hat_DKF[i][6, :]
     y_gt = log[2][0,:]
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix3), (y+mul*cix3), color="red", alpha=0.2)
 
 
+for i in range(n_vehicles):
+    plt.figure()
+    plt.title("Vehicle: " + str(i))
+    cix1 = np.sqrt(P_DKF[i][1, 1, :])
+    cix2 = np.sqrt(P_DKF[i][4, 4, :])
+    cix3 = np.sqrt(P_DKF[i][7, 7, :])
+    mul = 4
+    plt.subplot(3,1,1)
+    y = S_hat_DKF[i][1, :]
+    y_gt = log[0][1,:]
+    plt.plot(times, y)
+    plt.plot(times, y_gt)
+    plt.fill_between(times, (y-mul*cix1), (y+mul*cix1), color="red", alpha=0.2)
+
+    plt.subplot(3,1,2)
+    y = S_hat_DKF[i][4, :]
+    y_gt = log[1][1,:]
+    plt.plot(times, y)
+    plt.plot(times, y_gt)
+    plt.fill_between(times, (y-mul*cix2), (y+mul*cix2), color="red", alpha=0.2)
+
+    plt.subplot(3,1,3)
+    y = S_hat_DKF[i][7, :]
+    y_gt = log[2][1,:]
+    plt.plot(times, y)
+    plt.plot(times, y_gt)
+    plt.fill_between(times, (y-mul*cix3), (y+mul*cix3), color="red", alpha=0.2)
 
 plt.show()

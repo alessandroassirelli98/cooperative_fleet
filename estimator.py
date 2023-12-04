@@ -148,20 +148,14 @@ class Estimator():
         d = S_sym[2 + self.idx * self.n]
 
         h_tmp = [x, y, d]
-        R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2]
 
         for v in visible_vehicles:
             x1 = S_sym[self.n * self.vehicle2idx[v]]
             y1 = S_sym[1 + self.n * self.vehicle2idx[v]]
             d1 = S_sym[2 + self.n * self.vehicle2idx[v]]
 
-
-            # h_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2))
-            # h_tmp.append(cas.arctan2((y1-y),(x1-x))-d)
-
-
-            # R_tmp.append(conf.sigma_radar**2)
-            # R_tmp.append(conf.sigma_radar**2)
+            h_tmp.append(cas.sqrt((x1-x)**2 + (y1-y)**2 +1e-6))
+            h_tmp.append(cas.arctan2((y1-y) + 1e-6,(x1-x) + 1e-6)-d)
 
             # Get front vehicle information via communicatio
             # h_tmp.append(x1)
@@ -177,7 +171,6 @@ class Estimator():
         H = cas.jacobian(h, self.S_sym)
         self.H_fun = cas.Function('H_fun', [self.S_sym], [H])
         self.h_fun = cas.Function('h_fun', [self.S_sym], [h])  
-        R = np.diag(R_tmp)
         
     
     # def make_f_EKF(self, S_sym, U_sym, nu_sym):

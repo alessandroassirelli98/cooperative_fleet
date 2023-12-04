@@ -20,9 +20,9 @@ r = 30
 v_max = 20
 a_max = 60
 
-comm_range = 200
+comm_range = 25000
 lidar_range = 150
-comm_prob = 1
+comm_prob = 0.1
 
 P_gps = 0.5
 P_radar = 0.0
