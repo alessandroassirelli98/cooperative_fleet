@@ -9,13 +9,14 @@ import conf
 plt.style.use("seaborn")
 
 n_vehicles = 6
-n = 3
-T = 350
+n = 6
+T = 300
 dt = 0.1
 N = int(T/dt)
 
 schedule = []
 v_cruise = 10
+v_overtake = 25
 
 Q = np.eye(n) * conf.sigma_u**2
 Q_arr = []
@@ -23,11 +24,11 @@ for i in range(n * n_vehicles):
     Q_arr.append(conf.sigma_u**2)
 Q_arr = np.diag(Q_arr)
 
-street = Street(0, 0, 4000, 0)
+street = Street(0, 0, 4500, 0)
 lanes = street.lanes
 
 vehicles_list = [Vehicle(street, lanes[0], 0, v_cruise, dt)]
-[vehicles_list.append(Vehicle(street, lanes[0], vehicles_list[i].x - 10, v_cruise, dt)) for i in range(n_vehicles-1)]
+[vehicles_list.append(Vehicle(street, lanes[0], vehicles_list[i].x - conf.r/2, v_cruise, dt)) for i in range(n_vehicles-1)]
 vehicles_list[0].c1 = 100/1000
 
 estimators_list = []
@@ -50,6 +51,11 @@ for i in range(n_vehicles):
     P_DKF.append(np.zeros((n * n_vehicles, n * n_vehicles, N)))
     P_DKF[i][:,:,0] = np.eye(n * n_vehicles) * 10
 
+
+times = np.arange(0, T, dt)
+freq = 0.36
+u_first_vehicle = np.sin(freq* times)
+error = np.zeros((n_vehicles, N))
 for t in range(N-1):
 
     u_vec = []
@@ -90,27 +96,56 @@ for t in range(N-1):
     # Compute control actions:
     ordered_u = []
     for i, v in enumerate(vehicles_list):
+        u_fwd = 0
         x = S_hat_DKF[i][i * n, t]
         y = S_hat_DKF[i][i * n + 1, t]
+        vel = S_hat_DKF[i][i * n + 4, t]
+        acc = S_hat_DKF[i][i * n + 5, t]
+
         for j, vj in enumerate(vehicles_list):
             if v == ordered_vehicles[0]: 
-                vel = v_cruise
+                u_fwd = conf.vel_gain * (v_cruise - v.v)
+                # u_fwd = u_first_vehicle[t]
                 break
 
             if A_SENS[i,j] == 1:
                 Px = P_DKF[i][j*n + 0, j*n+0, t]
                 xf = S_hat_DKF[i][j * n + 0, t]
                 yf = S_hat_DKF[i][j * n + 1, t]
+                vel_f = S_hat_DKF[i][j * n + 4, t]                
+                acc_f = S_hat_DKF[i][j * n + 5, t]
                 r = np.sqrt((xf-x)**2 + (yf-y)**2)
 
-                if np.sqrt(Px) * 4 < 5:
-                    vel = PIDs[i].compute(r - 80, dt)
-                else:
-                    vel = v_cruise
+                # Using real state                        
+                # e1 = r - conf.r - conf.h * v.v
+                # e2 = vj.v - v.v -  conf.h * v.a
+                # e3 = vj.a - v.a - (1/conf.tau * (- v.a + v.u_fwd) * conf.h)
+                # u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
+                #                   conf.kp * e1 + 
+                #                   conf.kd * e2 + 
+                #                   conf.kdd * e3 + vj.u_fwd) * dt
+                
+                # Using Predictions
+                e1 = r - conf.r - conf.h * v.v
+                e2 = vel_f - vel -  conf.h * acc
+                e3 = acc_f - acc - (1/conf.tau * (- acc + v.u_fwd) * conf.h)
+                u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
+                                conf.kp * e1 + 
+                                conf.kd * e2 + 
+                                conf.kdd * e3 + vj.u_fwd) * dt
+                
+                error[i, t] = e1
+
+
+
+                # if np.sqrt(Px) * 4 < 5:
+                #     u_fwd = PIDs[i].compute(r - 80, dt)
+                # else:
+                #     u_fwd = PIDs[i].compute(v_cruise - v.v, dt)
 
         if v in schedule:
             if x >= schedule[v]:
-                vel = v_cruise + 10 # Accelerate
+                u_fwd = conf.vel_gain * (v_overtake - v.v) # Accelerate
                 v.overtaking = True
                 if v.which_lane == 0 : v.change_lane(1)
                 x_vehicles = []
@@ -123,13 +158,14 @@ for t in range(N-1):
 
                 if len(x_vehicles) != 0: 
                     x_max = max(x_vehicles) 
-                    if x > x_max + 100: 
+                    if x > x_max + conf.r: 
                         v.overtaking = False # If the front vehicle has been overtaken, then stop
                         v.change_lane(0)
                         del schedule[v]
-         
-        omega = (v.compute_steering(x, y) - v.delta)
-        ordered_u.append(np.array([vel, omega]))
+
+        alpha_des = v.compute_steering(x, y)
+        omega = PIDs[i].compute(alpha_des - v.alpha, dt)
+        ordered_u.append(np.array([u_fwd, omega]))
 
     initial_u = [ordered_u[i] for i in range(n_vehicles)]
     initial_u = np.array(initial_u).flatten()
@@ -150,12 +186,12 @@ for t in range(N-1):
     for i, e in enumerate(estimators_list):
         visible_vehicles = []
         visible_estimator = []
-        R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2]
+        R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2, conf.sigma_alpha**2, conf.sigma_v**2, conf.sigma_a**2]
         for j, vj in enumerate(vehicles_list):
             if A_SENS[i,j] == 1:
                 visible_vehicles.append(vj)
-                R_tmp.append(conf.sigma_radar **2)
-                R_tmp.append(conf.sigma_radar **2)
+                R_tmp.append(conf.sigma_lidar_rho **2)
+                R_tmp.append(conf.sigma_lidar_phi **2)
 
         R = np.diag(R_tmp)
         nu = np.random.multivariate_normal(np.zeros((Q_arr.shape[0])), Q_arr).T
@@ -199,13 +235,12 @@ plt.figure()
 for i in range(n_vehicles):
     plt.plot(log[i][0,1:])
 
-times = np.arange(0,N)
 for i in range(n_vehicles):
     plt.figure()
     plt.title("Vehicle: " + str(i))
     cix1 = np.sqrt(P_DKF[i][0, 0, :])
-    cix2 = np.sqrt(P_DKF[i][3, 3, :])
-    cix3 = np.sqrt(P_DKF[i][6, 6, :])
+    cix2 = np.sqrt(P_DKF[i][6, 6, :])
+    cix3 = np.sqrt(P_DKF[i][12, 12, :])
     mul = 4
     plt.subplot(3,1,1)
     y = S_hat_DKF[i][0, :]
@@ -215,14 +250,14 @@ for i in range(n_vehicles):
     plt.fill_between(times, (y-mul*cix1), (y+mul*cix1), color="red", alpha=0.2)
 
     plt.subplot(3,1,2)
-    y = S_hat_DKF[i][3, :]
+    y = S_hat_DKF[i][6, :]
     y_gt = log[1][0,:]
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix2), (y+mul*cix2), color="red", alpha=0.2)
 
     plt.subplot(3,1,3)
-    y = S_hat_DKF[i][6, :]
+    y = S_hat_DKF[i][12, :]
     y_gt = log[2][0,:]
     plt.plot(times, y)
     plt.plot(times, y_gt)
@@ -233,8 +268,8 @@ for i in range(n_vehicles):
     plt.figure()
     plt.title("Vehicle: " + str(i))
     cix1 = np.sqrt(P_DKF[i][1, 1, :])
-    cix2 = np.sqrt(P_DKF[i][4, 4, :])
-    cix3 = np.sqrt(P_DKF[i][7, 7, :])
+    cix2 = np.sqrt(P_DKF[i][7, 7, :])
+    cix3 = np.sqrt(P_DKF[i][13, 13, :])
     mul = 4
     plt.subplot(3,1,1)
     y = S_hat_DKF[i][1, :]
@@ -244,14 +279,14 @@ for i in range(n_vehicles):
     plt.fill_between(times, (y-mul*cix1), (y+mul*cix1), color="red", alpha=0.2)
 
     plt.subplot(3,1,2)
-    y = S_hat_DKF[i][4, :]
+    y = S_hat_DKF[i][7, :]
     y_gt = log[1][1,:]
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix2), (y+mul*cix2), color="red", alpha=0.2)
 
     plt.subplot(3,1,3)
-    y = S_hat_DKF[i][7, :]
+    y = S_hat_DKF[i][13, :]
     y_gt = log[2][1,:]
     plt.plot(times, y)
     plt.plot(times, y_gt)

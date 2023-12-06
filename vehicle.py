@@ -24,7 +24,7 @@ class Vehicle:
         self.u_fwd = 0
         self.u = np.array([self.u_fwd, self.omega])
         
-        self.S0 = np.array([self.x, self.y, self.delta])
+        self.S0 = np.array([self.x, self.y, self.delta, self.alpha, self.v, self.a])
         self.S = self.S0
 
         self.steer_control = PPC()
@@ -57,8 +57,8 @@ class Vehicle:
             
 
     def compute_steering(self, x, y):
-        delta_des = self.steer_control.ComputeSteeringAngle(self.path, np.array([x,y]), self.delta, self.L)
-        return delta_des
+        alpha_des = self.steer_control.ComputeSteeringAngle(self.path, np.array([x,y]), self.delta, self.L)
+        return alpha_des
 
     def update(self, u, nu):
         self.S = self.f(self.S, u, nu)
@@ -68,44 +68,47 @@ class Vehicle:
         self.x = self.S[0]
         self.y = self.S[1]
         self.delta = self.S[2] 
+        self.alpha = self.S[3] 
+        self.v = self.S[4] 
+        self.a = self.S[5]
+        self.u_fwd = u[0]
+        self.omega = u[1]
         self.s = self.street.xy_to_s(self.x, self.y)
 
         self.life -=  ( self.s - self.s_ ) * (self.c0 + self.c1 if self.lead else self.c0)
         self.lead = False
 
-        # self.alpha = self.S[3] 
-        # self.v = self.S[4] 
-        # self.a = self.S[5]
         
-
-    # def f(self, X, U, nu):
-    #     delta = X[2] 
-    #     alpha = X[3] 
-    #     v = X[4] 
-    #     a = X[5]
-    #     u0 = U[0]
-    #     u1 = U[1]
-
-    #     xp1 = np.array([
-    #         np.cos(delta) * v,
-    #         np.sin(delta) * v,
-    #         np.tan(alpha)/self.L  *v,
-    #         u1,
-    #         a,
-    #         1/conf.tau * (-a + u0)
-    #     ]) * self.dt + X + nu
-
-    #     return xp1
+        
 
     def f(self, X, U, nu):
         delta = X[2] 
+        alpha = X[3] 
+        v = X[4] 
+        a = X[5]
         u0 = U[0]
         u1 = U[1]
 
         xp1 = np.array([
-            np.cos(delta) * u0,
-            np.sin(delta) * u0,
-            u1
+            np.cos(delta) * v,
+            np.sin(delta) * v,
+            np.tan(alpha)/self.L  *v,
+            u1,
+            a,
+            1/conf.tau * (-a + u0)
         ]) * self.dt + X + nu
 
         return xp1
+
+    # def f(self, X, U, nu):
+    #     delta = X[2] 
+    #     u0 = U[0]
+    #     u1 = U[1]
+
+    #     xp1 = np.array([
+    #         np.cos(delta) * u0,
+    #         np.sin(delta) * u0,
+    #         u1
+    #     ]) * self.dt + X + nu
+
+    #     return xp1
