@@ -68,7 +68,10 @@ for t in range(N-1):
     for i,v in enumerate(vehicles_list):
         for j,vj in enumerate(vehicles_list):
             if vj != v and v != ordered_vehicles[0]: 
+                if np.abs(v.s - vj.s) > conf.lidar_range: continue
                 if ordered_vehicles.index(vj) == ordered_vehicles.index(v) - 1:
+                    A_SENS[i,j] = 1
+                if v.overtaking and  ordered_vehicles.index(vj) < ordered_vehicles.index(v):
                     A_SENS[i,j] = 1
 
     # Commmunication matrix
@@ -102,7 +105,7 @@ for t in range(N-1):
                 r = np.sqrt((xf-x)**2 + (yf-y)**2)
 
                 if np.sqrt(Px) * 4 < 5:
-                    vel = PIDs[i].compute(r - 150, dt)
+                    vel = PIDs[i].compute(r - 80, dt)
                 else:
                     vel = v_cruise
 
@@ -154,7 +157,6 @@ for t in range(N-1):
                 visible_vehicles.append(vj)
                 R_tmp.append(conf.sigma_radar **2)
                 R_tmp.append(conf.sigma_radar **2)
-                pass
 
         R = np.diag(R_tmp)
         nu = np.random.multivariate_normal(np.zeros((Q_arr.shape[0])), Q_arr).T
