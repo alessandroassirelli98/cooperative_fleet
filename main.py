@@ -8,7 +8,7 @@ from street import Street, Lane
 import conf
 plt.style.use("seaborn")
 
-n_vehicles = 3
+n_vehicles = 6
 n = 3
 T = 350
 dt = 0.1
@@ -79,7 +79,6 @@ for t in range(N-1):
     for i in range(n_vehicles):
         for j in range(i+1, n_vehicles):
             if not np.random.rand() < conf.comm_prob: break
-            # if t<1000 or t>1500: break
             if np.abs(vehicles_list[i].s - vehicles_list[j].s) < conf.comm_range:
                 A_COMM[i,j] = 1
     A_COMM = A_COMM + A_COMM.T
@@ -111,7 +110,7 @@ for t in range(N-1):
 
         if v in schedule:
             if x >= schedule[v]:
-                vel = 20 # Accelerate
+                vel = v_cruise + 10 # Accelerate
                 v.overtaking = True
                 if v.which_lane == 0 : v.change_lane(1)
                 x_vehicles = []
