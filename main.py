@@ -8,7 +8,7 @@ from street import Street, Lane
 import conf
 plt.style.use("seaborn")
 
-n_vehicles = 6
+n_vehicles = 3
 n = 6
 T = 300
 dt = 0.1
@@ -117,22 +117,22 @@ for t in range(N-1):
                 r = np.sqrt((xf-x)**2 + (yf-y)**2)
 
                 # Using real state                        
-                # e1 = r - conf.r - conf.h * v.v
-                # e2 = vj.v - v.v -  conf.h * v.a
-                # e3 = vj.a - v.a - (1/conf.tau * (- v.a + v.u_fwd) * conf.h)
-                # u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
-                #                   conf.kp * e1 + 
-                #                   conf.kd * e2 + 
-                #                   conf.kdd * e3 + vj.u_fwd) * dt
+                e1 = r - conf.r - conf.h * v.v
+                e2 = vj.v - v.v -  conf.h * v.a
+                e3 = vj.a - v.a - (1/conf.tau * (- v.a + v.u_fwd) * conf.h)
+                u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
+                                  conf.kp * e1 + 
+                                  conf.kd * e2 + 
+                                  conf.kdd * e3 + vj.u_fwd) * dt
                 
                 # Using Predictions
-                e1 = r - conf.r - conf.h * v.v
-                e2 = vel_f - vel -  conf.h * acc
-                e3 = acc_f - acc - (1/conf.tau * (- acc + v.u_fwd) * conf.h)
-                u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
-                                conf.kp * e1 + 
-                                conf.kd * e2 + 
-                                conf.kdd * e3 + vj.u_fwd) * dt
+                # e1 = r - conf.r - conf.h * v.v
+                # e2 = vel_f - vel -  conf.h * acc
+                # e3 = acc_f - acc - (1/conf.tau * (- acc + v.u_fwd) * conf.h)
+                # u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
+                #                 conf.kp * e1 + 
+                #                 conf.kd * e2 + 
+                #                 conf.kdd * e3 + vj.u_fwd) * dt
                 
                 error[i, t] = e1
 
@@ -158,7 +158,7 @@ for t in range(N-1):
 
                 if len(x_vehicles) != 0: 
                     x_max = max(x_vehicles) 
-                    if x > x_max + conf.r: 
+                    if x > x_max + 10:# conf.r: 
                         v.overtaking = False # If the front vehicle has been overtaken, then stop
                         v.change_lane(0)
                         del schedule[v]
@@ -277,6 +277,7 @@ for i in range(n_vehicles):
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix1), (y+mul*cix1), color="red", alpha=0.2)
+    plt.ylim((-10,10))
 
     plt.subplot(3,1,2)
     y = S_hat_DKF[i][7, :]
@@ -284,6 +285,8 @@ for i in range(n_vehicles):
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix2), (y+mul*cix2), color="red", alpha=0.2)
+    plt.ylim((-10,10))
+
 
     plt.subplot(3,1,3)
     y = S_hat_DKF[i][13, :]
@@ -291,5 +294,7 @@ for i in range(n_vehicles):
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix3), (y+mul*cix3), color="red", alpha=0.2)
+    plt.ylim((-10,10))
+
 
 plt.show()

@@ -23,8 +23,8 @@ v_max = 20
 a_max = 60
 
 comm_range = 100
-lidar_range = 250
-comm_prob = 0.4
+lidar_range = 2500
+comm_prob = 0.0
 
 
 ### Measurement uncertainties

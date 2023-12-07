@@ -66,7 +66,7 @@ class Estimator():
         a = S_sym[5 + self.idx * self.n]
 
         # Initialize temporary list for measurement function
-        h_tmp = [x, y, d, alpha, vel, alpha]
+        h_tmp = [x, y, d, alpha, vel, a]
 
         # Loop over visible vehicles to add measurements
         for v in visible_vehicles:
@@ -74,6 +74,8 @@ class Estimator():
             y1 = S_sym[1 + self.n * self.vehicle2idx[v]]
 
             # Append distance and angle measurements
+            # h_tmp.append(x1)
+            # h_tmp.append(y1)
             h_tmp.append(cas.sqrt((x1 - x) ** 2 + (y1 - y) ** 2 + 1e-5))
             h_tmp.append(cas.arctan2((y1 - y) + 1e-5, (x1 - x) + 1e-5) - d)
 
