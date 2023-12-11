@@ -40,15 +40,27 @@ class Vehicle:
         self.lead = False
 
     def change_lane(self, lane):
+        d = self.street.angle
+        x = self.x
+        y = self.y
+        M10 = np.array([[np.cos(d), np.sin(d), - x * np.cos(d) - y * np.sin(d)],
+                    [-np.sin(d), np.cos(d), -y * np.cos(d) + x * np.sin(d)],
+                     [0,0,1]])
+        M01 = np.array([[np.cos(d), -np.sin(d), x],
+                        [np.sin(d), np.cos(d), y],
+                        [0,0,1]])
+        
         if lane == 1:
-            x_target = self.x + self.street.lane_width
-            y_target = self.street.lane_width/2
+            target = M01 @ np.array([self.street.lane_width, self.street.lane_width/2,1])
+            x_target = target[0]
+            y_target = target[1]
             self.path = np.array([[self.x, self.y], 
                                 [x_target, y_target], 
                                 [self.lane.x_end, y_target]]) # Change lane
             self.which_lane = 1
         elif lane == 0 :
-            x_target = self.x + self.street.lane_width
+            target = M01 @ np.array([self.street.lane_width, self.street.lane_width/2,1])
+            x_target = target[0]
             y_target = self.lane.y_end
             self.path = np.array([[self.x, self.y], 
                                 [x_target, y_target], 

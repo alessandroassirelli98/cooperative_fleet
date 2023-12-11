@@ -17,26 +17,26 @@ tau = 0.1
 L = 5
 
 h = 0.7
-r = 80
+r = 100
 
 v_max = 20
 a_max = 60
 
-comm_range = 100
-lidar_range = 2500
-comm_prob = 0.0
+comm_range = 200
+lidar_range = 150
+comm_prob = 0.3
 
 
 ### Measurement uncertainties
-sigma_delta = 1e-2
 sigma_alpha = 1e-2
-sigma_v = 1e-1
-sigma_a = 1e-1
+sigma_v = 1e-2
+sigma_a = 1e-2
 sigma_mag = 1e-2
 sigma_x_gps = 1e-2
 sigma_y_gps = 1e-2
-sigma_lidar_rho = 1e-1
-sigma_lidar_phi = 1e-1
+sigma_lidar_rho = 1e-2
+sigma_lidar_phi = 1e-2
+sigma_stereo = 1e-1
 
 
 sigma_u = 1e-2

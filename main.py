@@ -24,7 +24,7 @@ for i in range(n * n_vehicles):
     Q_arr.append(conf.sigma_u**2)
 Q_arr = np.diag(Q_arr)
 
-street = Street(0, 0, 4500, 0)
+street = Street(0, 0, 4500, 100)
 lanes = street.lanes
 
 vehicles_list = [Vehicle(street, lanes[0], 0, v_cruise, dt)]
@@ -158,7 +158,7 @@ for t in range(N-1):
 
                 if len(x_vehicles) != 0: 
                     x_max = max(x_vehicles) 
-                    if x > x_max + 10:# conf.r: 
+                    if x > x_max + conf.r: 
                         v.overtaking = False # If the front vehicle has been overtaken, then stop
                         v.change_lane(0)
                         del schedule[v]
@@ -186,12 +186,17 @@ for t in range(N-1):
     for i, e in enumerate(estimators_list):
         visible_vehicles = []
         visible_estimator = []
-        R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2, conf.sigma_alpha**2, conf.sigma_v**2, conf.sigma_a**2]
+        R_tmp = [conf.sigma_x_gps**2, conf.sigma_y_gps**2, conf.sigma_mag**2, conf.sigma_alpha**2, conf.sigma_v**2]
         for j, vj in enumerate(vehicles_list):
             if A_SENS[i,j] == 1:
                 visible_vehicles.append(vj)
                 R_tmp.append(conf.sigma_lidar_rho **2)
                 R_tmp.append(conf.sigma_lidar_phi **2)
+                R_tmp.append(conf.sigma_stereo **2)
+                R_tmp.append(conf.sigma_stereo **2)
+                # R_tmp.append(conf.sigma_v **2)
+                # R_tmp.append(conf.sigma_v **2)
+                # pass
 
         R = np.diag(R_tmp)
         nu = np.random.multivariate_normal(np.zeros((Q_arr.shape[0])), Q_arr).T
@@ -277,7 +282,7 @@ for i in range(n_vehicles):
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix1), (y+mul*cix1), color="red", alpha=0.2)
-    plt.ylim((-10,10))
+    # plt.ylim((-10,10))
 
     plt.subplot(3,1,2)
     y = S_hat_DKF[i][7, :]
@@ -285,7 +290,7 @@ for i in range(n_vehicles):
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix2), (y+mul*cix2), color="red", alpha=0.2)
-    plt.ylim((-10,10))
+    # plt.ylim((-10,10))
 
 
     plt.subplot(3,1,3)
@@ -294,7 +299,7 @@ for i in range(n_vehicles):
     plt.plot(times, y)
     plt.plot(times, y_gt)
     plt.fill_between(times, (y-mul*cix3), (y+mul*cix3), color="red", alpha=0.2)
-    plt.ylim((-10,10))
+    # plt.ylim((-10,10))
 
 
 plt.show()

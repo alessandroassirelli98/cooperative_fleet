@@ -66,18 +66,28 @@ class Estimator():
         a = S_sym[5 + self.idx * self.n]
 
         # Initialize temporary list for measurement function
-        h_tmp = [x, y, d, alpha, vel, a]
+        h_tmp = [x, y, d, alpha, vel]
+        M10 = np.array([[cas.cos(d), cas.sin(d), - x * cas.cos(d) - y * cas.sin(d)],
+                    [-cas.sin(d), cas.cos(d), -y * cas.cos(d) + x * cas.sin(d)],
+                     [0,0,1]])
 
         # Loop over visible vehicles to add measurements
         for v in visible_vehicles:
             x1 = S_sym[self.n * self.vehicle2idx[v]]
-            y1 = S_sym[1 + self.n * self.vehicle2idx[v]]
+            y1 = S_sym[1 + self.n * self.vehicle2idx[v]]             
+            d1 = S_sym[2 + self.n * self.vehicle2idx[v]]            
+
 
             # Append distance and angle measurements
             # h_tmp.append(x1)
             # h_tmp.append(y1)
-            h_tmp.append(cas.sqrt((x1 - x) ** 2 + (y1 - y) ** 2 + 1e-5))
-            h_tmp.append(cas.arctan2((y1 - y) + 1e-5, (x1 - x) + 1e-5) - d)
+            h_tmp.append(cas.sqrt((x1 - x) ** 2 + (y1 - y) ** 2 + 1e-4))
+            h_tmp.append(cas.arctan2((y1 - y) + 1e-4, (x1 - x) + 1e-4) - d)          
+            h_tmp.append((M10 @ np.array([x1,y1,1]))[0])
+            h_tmp.append((M10 @ np.array([x1,y1,1]))[1])
+            # h_tmp.append(d1 - d)          
+            # h_tmp.append(cas.arctan(((y1 - y) + 1e-4) / ((x1 - x) + 1e-4)) - d)
+
 
         # Concatenate the temporary list to form the measurement vector
         h = []
