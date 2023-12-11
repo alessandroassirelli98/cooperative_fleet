@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class Street:
-    def __init__(self, x_start, y_start, x_end, y_end, n_lanes=2, lane_width=5):
+    def __init__(self, x_start, y_start, x_end, y_end, n_lanes=2, lane_width=7):
         self.x_start = x_start
         self.y_start = y_start
         self.x_end = x_end
@@ -28,9 +28,9 @@ class Street:
 
     def plot_street(self):
         for i in range(self.n_lanes):
-            plt.plot([self.lanes[i].x_start, self.lanes[i].x_end], [self.lanes[i].y_start, self.lanes[i].y_end], 'b--')
-            print(self.lanes[i].length)
-        plt.plot([self.x_start, self.x_end], [self.y_start, self.y_end], 'r--')
+            plt.plot([self.lanes[i].x_start, self.lanes[i].x_end], [self.lanes[i].y_start - self.lane_width/2, self.lanes[i].y_end - self.lane_width/2 ], 'gray', linestyle = '--')
+            plt.plot([self.lanes[i].x_start, self.lanes[i].x_end], [self.lanes[i].y_start + self.lane_width/2, self.lanes[i].y_end + self.lane_width/2 ], 'gray', linestyle = '--')
+        # plt.plot([self.x_start, self.x_end], [self.y_start, self.y_end], 'r--')
         
 class Lane:
     def __init__(self, x_start, y_start, x_end, y_end):
@@ -48,8 +48,5 @@ class Lane:
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     street = Street(0, 0, 100, 0)
-    for i in range(street.n_lanes):
-        plt.plot([street.lanes[i].x_start, street.lanes[i].x_end], [street.lanes[i].y_start, street.lanes[i].y_end], 'b--')
-        print(street.lanes[i].length)
-    plt.plot([street.x_start, street.x_end], [street.y_start, street.y_end], 'r--')
+    street.plot_street()
     plt.show()

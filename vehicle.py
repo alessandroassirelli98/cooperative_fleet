@@ -38,6 +38,7 @@ class Vehicle:
         self.overtaking = False
         self.which_lane = 0
         self.lead = False
+        self.log_xydelta = []
 
     def change_lane(self, lane):
         d = self.street.angle
@@ -51,7 +52,7 @@ class Vehicle:
                         [0,0,1]])
         
         if lane == 1:
-            target = M01 @ np.array([self.street.lane_width, self.street.lane_width/2,1])
+            target = M01 @ np.array([self.street.lane_width, self.street.lane_width,1])
             x_target = target[0]
             y_target = target[1]
             self.path = np.array([[self.x, self.y], 
@@ -59,7 +60,7 @@ class Vehicle:
                                 [self.lane.x_end, y_target]]) # Change lane
             self.which_lane = 1
         elif lane == 0 :
-            target = M01 @ np.array([self.street.lane_width, self.street.lane_width/2,1])
+            target = M01 @ np.array([self.street.lane_width, self.street.lane_width,1])
             x_target = target[0]
             y_target = self.lane.y_end
             self.path = np.array([[self.x, self.y], 
@@ -86,6 +87,7 @@ class Vehicle:
         self.u_fwd = u[0]
         self.omega = u[1]
         self.s = self.street.xy_to_s(self.x, self.y)
+        self.log_xydelta.append(np.array([self.x, self.y, self.delta]))
 
         self.life -=  ( self.s - self.s_ ) * (self.c0 + self.c1 if self.lead else self.c0)
         self.lead = False

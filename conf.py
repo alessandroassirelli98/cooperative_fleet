@@ -1,6 +1,6 @@
 import numpy as np
 
-animate = False
+animate = True
 
 # String stability analysis
 kp = 0.1
@@ -14,7 +14,7 @@ pid_ki = 0.0
 vel_gain = 0.5
 
 tau = 0.1
-L = 5
+L = 10
 
 h = 0.7
 r = 100

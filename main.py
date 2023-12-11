@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.patches import Rectangle
 import numpy as np
 from vehicle import Vehicle
 from estimator import Estimator
@@ -7,6 +9,28 @@ import utils
 from street import Street, Lane
 import conf
 plt.style.use("seaborn")
+
+def update_animation(frame):
+    ax.clear()
+    log_xydelta = [v.log_xydelta for v in vehicles_list]
+    log_xydelta = np.array(log_xydelta)
+
+    xmin = min(log_xydelta[:, frame, 0])
+    xmax= max(log_xydelta[:, frame, 0])
+    ax.set(xlim=[xmin-10, xmax+10], ylim=[-7, 7], xlabel='Time [s]', ylabel='Z [m]')
+    ax.set_aspect('equal')
+    width = conf.L
+    height = 2.5
+    street.plot_street()
+    for i  in range(n_vehicles):
+        color = 'C'+str(i)
+        scat[i] = plt.gca().add_patch(Rectangle((log_xydelta[i, frame, 0] - width/2,log_xydelta[i, frame, 1] - height/2), width, height,
+                    angle=log_xydelta[i, frame, 2]*180/np.pi,
+                    facecolor = color,
+                    lw=4))
+        # scat[i] = plt.plot(log_xydelta[i, frame, 0], log_xydelta[i, frame, 1],
+        #                    marker = (3, 0, -90 + log_xydelta[i, frame, 2]*180/np.pi), markersize=10, linestyle='None')
+    return scat
 
 n_vehicles = 3
 n = 6
@@ -24,7 +48,7 @@ for i in range(n * n_vehicles):
     Q_arr.append(conf.sigma_u**2)
 Q_arr = np.diag(Q_arr)
 
-street = Street(0, 0, 4500, 100)
+street = Street(0, 0, 4500, 0)
 lanes = street.lanes
 
 vehicles_list = [Vehicle(street, lanes[0], 0, v_cruise, dt)]
@@ -301,5 +325,20 @@ for i in range(n_vehicles):
     plt.fill_between(times, (y-mul*cix3), (y+mul*cix3), color="red", alpha=0.2)
     # plt.ylim((-10,10))
 
-
 plt.show()
+
+if conf.animate:
+    scat = []
+    fig, ax = plt.subplots()
+    ax.set(xlim=[0, street.x_end], ylim=[lanes[0].y_start, lanes[0].y_end], xlabel='Time [s]', ylabel='Z [m]')
+    log_xydelta = [v.log_xydelta for v in vehicles_list]
+    log_xydelta = np.array(log_xydelta)
+    for i  in range(n_vehicles):
+        scat.append(plt.plot(log_xydelta[i, 0, 0], log_xydelta[i, 0, 1],
+                    marker = (3, 0, log_xydelta[i, 0, 2]*180/np.pi), markersize=20, linestyle='None'))
+
+    ani = animation.FuncAnimation(fig=fig, func=update_animation, frames=N, interval=dt* 500)
+    plt.show()
+
+
+
