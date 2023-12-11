@@ -3,7 +3,7 @@ import numpy as np
 animate = True
 
 # String stability analysis
-kp = 0.1
+kp = 0.2
 kd = 0.7
 kdd = 0
 
@@ -16,8 +16,8 @@ vel_gain = 0.5
 tau = 0.1
 L = 8
 
-h = 0.7
-r = 30
+h = 0.1
+r = 20
 
 v_max = 20
 a_max = 60

@@ -32,14 +32,14 @@ def update_animation(frame):
         #                    marker = (3, 0, -90 + log_xydelta[i, frame, 2]*180/np.pi), markersize=10, linestyle='None')
     return scat
 
-n_vehicles = 4
+n_vehicles = 7
 n = 6
-T = 100
+T = 50
 dt = 0.1
 N = int(T/dt)
 
 schedule = []
-v_cruise = 10
+v_cruise = 0
 v_overtake = 25
 
 Q = np.eye(n) * conf.sigma_u**2
@@ -80,7 +80,7 @@ for i in range(n_vehicles):
 
 times = np.arange(0, T, dt)
 freq = 0.36
-u_first_vehicle = np.sin(freq* times)
+u_first_vehicle = 2 * np.sin(freq* times)
 error = np.zeros((n_vehicles, N))
 for t in range(N-1):
 
@@ -126,7 +126,7 @@ for t in range(N-1):
     D = A_COMM @ np.ones(n_vehicles).T
 
     # Optimal schedule for energy efficiency
-    if t==0 : schedule = utils.compute_truck_scheduling(vehicles_list, ordered_vehicles)
+    # if t==0 : schedule = utils.compute_truck_scheduling(vehicles_list, ordered_vehicles)
 
     # Compute control actions:
     ordered_u = []
@@ -139,8 +139,8 @@ for t in range(N-1):
 
         for j, vj in enumerate(vehicles_list):
             if v == ordered_vehicles[0]: 
-                u_fwd = conf.vel_gain * (v_cruise - v.v)
-                # u_fwd = u_first_vehicle[t]
+                # u_fwd = conf.vel_gain * (v_cruise - v.v)
+                u_fwd = u_first_vehicle[t]
                 break
 
             if A_FOLL[i,j] == 1:
@@ -161,7 +161,7 @@ for t in range(N-1):
                 #                   conf.kdd * e3 + vj.u_fwd) * dt
                 
                 # Using Predictions
-                e1 = r - conf.r - conf.h * v.v
+                e1 = r - conf.L - conf.r - conf.h * v.v
                 e2 = vel_f - vel -  conf.h * acc
                 e3 = acc_f - acc - (1/conf.tau * (- acc + v.u_fwd) * conf.h)
                 u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
