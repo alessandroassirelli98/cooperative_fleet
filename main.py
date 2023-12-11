@@ -32,9 +32,9 @@ def update_animation(frame):
         #                    marker = (3, 0, -90 + log_xydelta[i, frame, 2]*180/np.pi), markersize=10, linestyle='None')
     return scat
 
-n_vehicles = 3
+n_vehicles = 4
 n = 6
-T = 300
+T = 100
 dt = 0.1
 N = int(T/dt)
 
@@ -52,7 +52,7 @@ street = Street(0, 0, 4500, 0)
 lanes = street.lanes
 
 vehicles_list = [Vehicle(street, lanes[0], 0, v_cruise, dt)]
-[vehicles_list.append(Vehicle(street, lanes[0], vehicles_list[i].x - conf.r/2, v_cruise, dt)) for i in range(n_vehicles-1)]
+[vehicles_list.append(Vehicle(street, lanes[0], vehicles_list[i].x - conf.r, v_cruise, dt)) for i in range(n_vehicles-1)]
 vehicles_list[0].c1 = 100/1000
 
 estimators_list = []
@@ -68,12 +68,14 @@ for i in range(n_vehicles):
 for v in vehicles_list:
     log[i][:, 0] = np.array([v.x,v.y])
 
+S_true = np.array([v.S0 for v in vehicles_list]).flatten()
 S_hat_DKF = []
 P_DKF = []
 for i in range(n_vehicles):
     S_hat_DKF.append(np.zeros((n * n_vehicles, N)))
     P_DKF.append(np.zeros((n * n_vehicles, n * n_vehicles, N)))
-    P_DKF[i][:,:,0] = np.eye(n * n_vehicles) * 10
+    P_DKF[i][:,:,0] = np.eye(n * n_vehicles) * 1e-5
+    S_hat_DKF[i][:,0] = S_true
 
 
 times = np.arange(0, T, dt)
@@ -103,6 +105,15 @@ for t in range(N-1):
                     A_SENS[i,j] = 1
                 if v.overtaking and  ordered_vehicles.index(vj) < ordered_vehicles.index(v):
                     A_SENS[i,j] = 1
+    
+    A_FOLL = np.zeros([n_vehicles, n_vehicles])
+    for i,v in enumerate(vehicles_list):
+        for j,vj in enumerate(vehicles_list):
+            if vj != v and v != ordered_vehicles[0]: 
+                if ordered_vehicles.index(vj) == ordered_vehicles.index(v) - 1:
+                    A_FOLL[i,j] = 1
+                if v.overtaking and  ordered_vehicles.index(vj) < ordered_vehicles.index(v):
+                    A_FOLL[i,j] = 1
 
     # Commmunication matrix
     A_COMM = np.zeros([n_vehicles, n_vehicles])
@@ -132,7 +143,7 @@ for t in range(N-1):
                 # u_fwd = u_first_vehicle[t]
                 break
 
-            if A_SENS[i,j] == 1:
+            if A_FOLL[i,j] == 1:
                 Px = P_DKF[i][j*n + 0, j*n+0, t]
                 xf = S_hat_DKF[i][j * n + 0, t]
                 yf = S_hat_DKF[i][j * n + 1, t]
@@ -141,37 +152,32 @@ for t in range(N-1):
                 r = np.sqrt((xf-x)**2 + (yf-y)**2)
 
                 # Using real state                        
-                e1 = r - conf.r - conf.h * v.v
-                e2 = vj.v - v.v -  conf.h * v.a
-                e3 = vj.a - v.a - (1/conf.tau * (- v.a + v.u_fwd) * conf.h)
-                u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
-                                  conf.kp * e1 + 
-                                  conf.kd * e2 + 
-                                  conf.kdd * e3 + vj.u_fwd) * dt
+                # e1 = r - conf.r - conf.h * v.v
+                # e2 = vj.v - v.v -  conf.h * v.a
+                # e3 = vj.a - v.a - (1/conf.tau * (- v.a + v.u_fwd) * conf.h)
+                # u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
+                #                   conf.kp * e1 + 
+                #                   conf.kd * e2 + 
+                #                   conf.kdd * e3 + vj.u_fwd) * dt
                 
                 # Using Predictions
-                # e1 = r - conf.r - conf.h * v.v
-                # e2 = vel_f - vel -  conf.h * acc
-                # e3 = acc_f - acc - (1/conf.tau * (- acc + v.u_fwd) * conf.h)
-                # u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
-                #                 conf.kp * e1 + 
-                #                 conf.kd * e2 + 
-                #                 conf.kdd * e3 + vj.u_fwd) * dt
+                e1 = r - conf.r - conf.h * v.v
+                e2 = vel_f - vel -  conf.h * acc
+                e3 = acc_f - acc - (1/conf.tau * (- acc + v.u_fwd) * conf.h)
+                u_fwd = v.u_fwd + 1/conf.h * ( - v.u_fwd + 
+                                conf.kp * e1 + 
+                                conf.kd * e2 + 
+                                conf.kdd * e3 + vj.u_fwd) * dt
                 
                 error[i, t] = e1
 
 
 
-                # if np.sqrt(Px) * 4 < 5:
-                #     u_fwd = PIDs[i].compute(r - 80, dt)
-                # else:
-                #     u_fwd = PIDs[i].compute(v_cruise - v.v, dt)
-
         if v in schedule:
             if x >= schedule[v]:
                 u_fwd = conf.vel_gain * (v_overtake - v.v) # Accelerate
                 v.overtaking = True
-                if v.which_lane == 0 : v.change_lane(1)
+                if v.which_lane == 0 : v.change_lane(1, S_hat_DKF[i][i:i+n, t])
                 x_vehicles = []
                 for j, vj in enumerate(vehicles_list):
                     if vj != v:
@@ -184,7 +190,7 @@ for t in range(N-1):
                     x_max = max(x_vehicles) 
                     if x > x_max + conf.r: 
                         v.overtaking = False # If the front vehicle has been overtaken, then stop
-                        v.change_lane(0)
+                        v.change_lane(0, S_hat_DKF[i][i:i+n, t])
                         del schedule[v]
 
         alpha_des = v.compute_steering(x, y)

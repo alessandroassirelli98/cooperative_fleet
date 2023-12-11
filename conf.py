@@ -14,17 +14,17 @@ pid_ki = 0.0
 vel_gain = 0.5
 
 tau = 0.1
-L = 10
+L = 8
 
 h = 0.7
-r = 100
+r = 30
 
 v_max = 20
 a_max = 60
 
 comm_range = 200
-lidar_range = 150
-comm_prob = 0.3
+lidar_range = 100
+comm_prob = 0.7
 
 
 ### Measurement uncertainties
@@ -36,7 +36,7 @@ sigma_x_gps = 1e-2
 sigma_y_gps = 1e-2
 sigma_lidar_rho = 1e-2
 sigma_lidar_phi = 1e-2
-sigma_stereo = 1e-1
+sigma_stereo = 1e-2
 
 
 sigma_u = 1e-2

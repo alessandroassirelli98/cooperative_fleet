@@ -28,7 +28,7 @@ class Vehicle:
         self.S = self.S0
 
         self.steer_control = PPC()
-        self.steer_control.lookAheadDistance = 15
+        self.steer_control.lookAheadDistance = 20
         self.path = np.array([[lane.x_start, lane.y_start], [lane.x_end, lane.y_end]])
 
         self.starting_battery = 100
@@ -40,10 +40,16 @@ class Vehicle:
         self.lead = False
         self.log_xydelta = []
 
-    def change_lane(self, lane):
-        d = self.street.angle
-        x = self.x
-        y = self.y
+    def change_lane(self, lane, state_estimate):
+        # d = state_estimate[2]
+        # x = state_estimate[0]
+        # y = state_estimate[1]
+
+        d = self.S[2]
+        x = self.S[0]
+        y = self.S[1]
+
+
         M10 = np.array([[np.cos(d), np.sin(d), - x * np.cos(d) - y * np.sin(d)],
                     [-np.sin(d), np.cos(d), -y * np.cos(d) + x * np.sin(d)],
                      [0,0,1]])
