@@ -33,8 +33,8 @@ class Vehicle:
 
         self.starting_battery = 100
         self.life = self.starting_battery
-        self.c0 = 100/100 / 1000  
-        self.c1 = 100/100 / 1000
+        self.c0 = 0.3 / 1000  # 0.3L per 1Km
+        self.c1 = 0.1 / 1000 # Additional 0.1L per Km
         self.overtaking = False
         self.which_lane = 0
         self.lead = False

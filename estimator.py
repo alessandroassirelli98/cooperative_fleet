@@ -83,8 +83,8 @@ class Estimator():
             # h_tmp.append(y1)
             h_tmp.append(cas.sqrt((x1 - x) ** 2 + (y1 - y) ** 2 + 1e-4))
             h_tmp.append(cas.arctan2((y1 - y) + 1e-4, (x1 - x) + 1e-4) - d)          
-            h_tmp.append((M10 @ np.array([x1,y1,1]))[0])
-            h_tmp.append((M10 @ np.array([x1,y1,1]))[1])
+            # h_tmp.append((M10 @ np.array([x1,y1,1]))[0])
+            # h_tmp.append((M10 @ np.array([x1,y1,1]))[1])
             # h_tmp.append(d1 - d)          
             # h_tmp.append(cas.arctan(((y1 - y) + 1e-4) / ((x1 - x) + 1e-4)) - d)
 

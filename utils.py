@@ -38,7 +38,7 @@ def order_matrix(vehicles_list):
     return O
 
 
-def compute_truck_scheduling(vehicles_list, ordered_vehicles):
+def compute_truck_scheduling(vehicles_list, ordered_vehicles, store=False):
         # The scheduling is computed in the street reference frame
         c0s = [v.c0 for v in vehicles_list]
         c1s = [v.c1 for v in vehicles_list]
@@ -84,6 +84,29 @@ def compute_truck_scheduling(vehicles_list, ordered_vehicles):
             prob = cp.Problem(obj, constraints)
             sol = prob.solve()
 
+            if store:
+                # Calculation withoptimized values
+                ls = np.array(ls)
+                consumptions_opt = P@x.value
+                total_consumption_opt = sum(consumptions_opt)
+                final_autonomy_opt = ls - consumptions_opt
+                np.savez('optimized', consumption=consumptions_opt, ls=ls)
+
+                # If no optimization was used
+                x_not_opt = np.zeros((2*len(vehicles_list)))
+                x_not_opt[0] = S
+                for i in range(2, 2 * len(vehicles_list)):
+                    if i%2 != 0: x_not_opt[i] = S
+
+                consumptions = P@x_not_opt
+                total_consumption = sum(consumptions)
+                final_autonomy = ls - consumptions
+                np.savez('not_optimized', consumption=consumptions, ls=ls)
+
+
+
+
+
             # opti = cas.Opti()
             # U = opti.variable(n*2)
 
@@ -104,7 +127,6 @@ def compute_truck_scheduling(vehicles_list, ordered_vehicles):
             # Obtain a sequence
             # [S_head, S_in_queue] for each vehicle
             u = np.array(np.split(np.round(x.value,0),n))
-            decreasing_order = u[:, 1].argsort()
 
             # not_optimal_u = np.array([S,0])
             # not_optimal_u = np.concatenate([not_optimal_u, np.array([0, S] * (n-1))])
@@ -121,15 +143,18 @@ def compute_truck_scheduling(vehicles_list, ordered_vehicles):
             # For the actual leader there is no need to overtake
             # The others must do it at the right moment
 
-            for i, ve in enumerate(vehicles_list):
-                if ve == ordered_vehicles[0]:
-                    target = i
-            shift = np.where(decreasing_order == target)[0][0]
-            order = np.roll(decreasing_order, -shift)
-            u = u[order]
+            # If you want the vehicles ordered by the amount of street they have to perform as leader
+            # decreasing_order = u[:, 1].argsort()
 
-            vehicles = np.array([v for v in vehicles_list])
-            vehicles = vehicles[order]
+            # for i, ve in enumerate(vehicles_list):
+            #     if ve == ordered_vehicles[0]:
+            #         target = i
+            # shift = np.where(decreasing_order == target)[0][0]
+            # order = np.roll(decreasing_order, -shift)
+            # u = u[order]
+
+            # vehicles = np.array([v for v in vehicles_list])
+            # vehicles = vehicles[order]
 
             # s = 0
             # for i,v in enumerate(vehicles):
@@ -139,8 +164,14 @@ def compute_truck_scheduling(vehicles_list, ordered_vehicles):
             #         schedule[v] = [s, u[i]]
             #     s += u[i][0]
 
+            # s = 0
+            # for i,v in enumerate(vehicles):
+            #     if i!=0: schedule[v] = [s]
+            #     s += u[i][0]
+
+            # Just keep actual order
             s = 0
-            for i,v in enumerate(vehicles):
+            for i,v in enumerate(ordered_vehicles):
                 if i!=0: schedule[v] = [s]
                 s += u[i][0]
 

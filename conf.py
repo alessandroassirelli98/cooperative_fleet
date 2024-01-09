@@ -1,6 +1,7 @@
 import numpy as np
 
 animate = True
+optimal_schedule = True
 
 # String stability analysis
 kp = 0.1
@@ -16,27 +17,30 @@ vel_gain = 0.5
 tau = 0.1
 L = 8
 
-h = 0.7
+h = 0.1
 r = 30
 
 v_max = 20
 a_max = 60
 
-comm_range = 200
-lidar_range = 100
-comm_prob = 0.7
+comm_range = 250
+lidar_range = 200
+comm_prob = 0.2
+
+mul = 3
+sigma_thr = 5
 
 
 ### Measurement uncertainties
 sigma_alpha = 1e-2
-sigma_v = 1e-2
-sigma_a = 1e-2
-sigma_mag = 1e-2
+sigma_v = 1e-1
+sigma_mag = 1e-1
 sigma_x_gps = 1e-2
 sigma_y_gps = 1e-2
-sigma_lidar_rho = 1e-2
-sigma_lidar_phi = 1e-2
+sigma_lidar_rho = 1e-1
+sigma_lidar_phi = 1e-1
 sigma_stereo = 1e-2
+sigma_d = 1e-1
 
 
 sigma_u = 1e-2
