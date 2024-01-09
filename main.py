@@ -1,4 +1,5 @@
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.patches import Rectangle
@@ -10,6 +11,10 @@ import utils
 from street import Street, Lane
 import conf
 plt.style.use("seaborn")
+matplotlib.rc('xtick', labelsize=10) 
+matplotlib.rc('ytick', labelsize=10)
+
+
 
 def update_animation(frame):
     ax.clear()
@@ -18,7 +23,7 @@ def update_animation(frame):
 
     xmin = min(log_xydelta[:, frame, 0])
     xmax= max(log_xydelta[:, frame, 0])
-    ax.set(xlim=[xmin-10, xmax+10], ylim=[-7, 7], xlabel='Time [s]', ylabel='Z [m]')
+    ax.set(xlim=[xmin-10, xmax+10], ylim=[-7, 7], xlabel='x [m]', ylabel='y [m]')
     ax.set_aspect('equal')
     width = conf.L
     height = 2.5
@@ -113,7 +118,7 @@ for t in range(N-1):
     for i,v in enumerate(vehicles_list):
         for j,vj in enumerate(vehicles_list):
             if vj != v and v != ordered_vehicles[0]: 
-                if np.abs(v.s - vj.s) > conf.lidar_range: continue
+                if np.abs(v.s - vj.s) > conf.radar_range: continue
                 if ordered_vehicles.index(vj) == ordered_vehicles.index(v) - 1:
                     A_SENS[i,j] = 1
                 if v.overtaking and  ordered_vehicles.index(vj) < ordered_vehicles.index(v):
@@ -164,9 +169,6 @@ for t in range(N-1):
                 # u_fwd = u_first_vehicle[t]
                 break
 
-            
-                
-
             if A_FOLL[i,j] == 1:
                 Px = P_DKF[i][j*n + 0, j*n+0, t]
                 if conf.mul * np.sqrt(Px) < conf.sigma_thr:
@@ -198,8 +200,6 @@ for t in range(N-1):
 
                 else:
                     u_fwd = conf.vel_gain * (v_cruise - v.v)
-
-
 
         if v in schedule:
             if s >= schedule[v]:
@@ -250,9 +250,9 @@ for t in range(N-1):
         for j, vj in enumerate(vehicles_list):
             if A_SENS[i,j] == 1:
                 visible_vehicles.append(vj)
-                R_tmp.append(conf.sigma_lidar_rho **2)
-                R_tmp.append(conf.sigma_lidar_phi **2)
-                # R_tmp.append(conf.sigma_d **2)
+                R_tmp.append(conf.sigma_radar_rho **2)
+                R_tmp.append(conf.sigma_radar_phi **2)
+                R_tmp.append(conf.sigma_d **2)
                 # R_tmp.append(conf.sigma_stereo **2)
                 # R_tmp.append(conf.sigma_stereo **2)
                 # R_tmp.append(conf.sigma_v **2)
@@ -263,8 +263,6 @@ for t in range(N-1):
         nu = np.random.multivariate_normal(np.zeros((Q_arr.shape[0])), Q_arr).T
         eps = np.random.multivariate_normal(np.zeros((R.shape[0])), R).T
         e.run_filter(GT, initial_u, nu, eps, t, Q_arr, R, visible_vehicles)
-        
-        
         
         zi = e.h_fun(GT).full().flatten() + eps
         H = e.H_fun(S_hat_DKF[i][:,t]).full()
@@ -298,6 +296,8 @@ for t in range(N-1):
         M = np.linalg.inv(np.linalg.inv(P_DKF[i][:,:, t]) + F[i])
         S_hat_DKF[i][:, t+1] = pred + M @ (a[i]- F[i] @ S_hat_DKF[i][:, t])
         P_DKF[i][:,:, t+1] = A @ M @ A.T + G @ Q_arr @ G.T
+
+
 
 np.savez('disagreement_m_' + str(m), consumption=disagreement_log)
 
@@ -358,14 +358,13 @@ for i in range(n_vehicles):
 
     mul = 4
     plt.subplot(4,1,1)
-    plt.title("Vehicle " + str(i) + "'s estimates")
+    # plt.title("Vehicle " + str(i) + "'s estimates")
     y = S_hat_DKF[i][1, :]
     y_gt = log[0][1,:]
     plt.plot(times, y, linewidth = 1)
     plt.plot(times, y_gt,  linewidth = 1)
     plt.fill_between(times, (y-mul*cix1), (y+mul*cix1), color="red", alpha=0.2,  linewidth = 3)
-    plt.xlabel("time [s]")
-    plt.xlabel("y [m]")
+    plt.ylabel("y [m]")
     plt.legend(["Vehicle 0 estimate", "Vehicle 0 true"])
 
     # plt.ylim((-10,10))
@@ -376,8 +375,7 @@ for i in range(n_vehicles):
     plt.plot(times, y, linewidth = 1)
     plt.plot(times, y_gt, linewidth = 1)
     plt.fill_between(times, (y-mul*cix2), (y+mul*cix2), color="red", alpha=0.2, linewidth = 3)
-    plt.xlabel("time [s]")
-    plt.xlabel("y [m]")
+    plt.ylabel("y [m]")
     plt.legend(["Vehicle 1 estimate", "Vehicle 1 true"])
 
     # plt.ylim((-10,10))
@@ -388,8 +386,8 @@ for i in range(n_vehicles):
     plt.plot(times, y_gt, linewidth = 1)
     plt.fill_between(times, (y-mul*cix3), (y+mul*cix3), color="red", alpha=0.2, linewidth = 3)
     # plt.ylim((-10,10))
-    plt.xlabel("time [s]")
-    plt.xlabel("y [m]")
+    plt.ylabel("y [m]")
+
     plt.legend(["Vehicle 2 estimate", "Vehicle 2 true"])
 
     plt.subplot(4,1,4)
@@ -400,7 +398,7 @@ for i in range(n_vehicles):
     plt.fill_between(times, (y-mul*cix4), (y+mul*cix4), color="red", alpha=0.2, linewidth = 3)
     # plt.ylim((-10,10))
     plt.xlabel("time [s]")
-    plt.xlabel("y [m]")
+    plt.ylabel("y [m]")
     plt.legend(["Vehicle 3 estimate", "Vehicle 3 true"])
 
     plt.savefig("imgs/estimation of v" + str(i) + ".png")
@@ -410,11 +408,11 @@ p = np.sqrt(P_DKF[0][7,7,:])
 df = pd.DataFrame(p)
 p_average = df.rolling(window=500).mean()
 plt.figure(figsize=(10, 5))
-plt.title(r'$P_{0, y1}$')
+# plt.title("Uncertainty in v1 y estimate")
 plt.plot(times, p, 'k-', label='Original')
 plt.plot(times, p_average, 'r-', label='Running average')
 plt.xlabel("time [s]")
-plt.ylabel("y [m]")
+plt.ylabel(r'$\sigma_{0, y1}$')
 plt.ylim([0, 0.5])
 plt.legend([r'$\sigma_y [m]$', "rolling mean"])
 plt.savefig("imgs/P0y1.png")
@@ -488,7 +486,7 @@ for i in range(n_vehicles):
         plt.plot(times[1:], y, linewidth = 1)
         plt.plot(times[1:], y_gt,  linewidth = 1)
         plt.fill_between(times[1:], (y-mul*ci), (y+mul*ci), color="red", alpha=0.2,  linewidth = 3)
-        # plt.xlabel("time [s]")
+        plt.ylabel("y [m]")
         plt.ylabel("Vehicle " + str(j))
 
         # plt.legend(["Vehicle 0 est", "Vehicle 0 true"])
@@ -501,8 +499,9 @@ for i in range(n_vehicles):
         plt.plot(times[1:], y, linewidth = 1)
         plt.plot(times[1:], y_gt,  linewidth = 1)
         plt.fill_between(times[1:], (y-mul*ci), (y+mul*ci), color="red", alpha=0.2,  linewidth = 3)
+        plt.ylabel("y [m]")
         # plt.xlabel("time [s]")
-        if j==3:plt.xlabel("Vehicle " + str(i) + "'s estimates")
+        # if j==3:plt.xlabel("Vehicle " + str(i) + "'s estimates")
 
 
 
@@ -514,6 +513,7 @@ for i in range(n_vehicles):
         plt.plot(times[1:], y, linewidth = 1)
         plt.plot(times[1:], y_gt,  linewidth = 1)
         plt.fill_between(times[1:], (y-mul*ci), (y+mul*ci), color="red", alpha=0.2,  linewidth = 3)
+        plt.ylabel("y [m]")
         # plt.xlabel("time [s]")
     plt.savefig("imgs/vehicle " + str(i) + "'s estimates")
 

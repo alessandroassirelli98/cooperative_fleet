@@ -24,8 +24,8 @@ v_max = 20
 a_max = 60
 
 comm_range = 250
-lidar_range = 200
-comm_prob = 0.2
+radar_range = 200
+comm_prob = 0.3
 
 mul = 3
 sigma_thr = 5
@@ -37,10 +37,10 @@ sigma_v = 1e-1
 sigma_mag = 1e-1
 sigma_x_gps = 1e-2
 sigma_y_gps = 1e-2
-sigma_lidar_rho = 1e-1
-sigma_lidar_phi = 1e-1
+sigma_radar_rho = 5*1e-2
+sigma_radar_phi = 5*1e-2
 sigma_stereo = 1e-2
-sigma_d = 1e-1
+sigma_d = 1e-2
 
 
 sigma_u = 1e-2
