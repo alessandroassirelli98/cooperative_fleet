@@ -17,14 +17,14 @@ vel_gain = 0.5
 tau = 0.1
 L = 8
 
-h = 0.1
-r = 30
+h = 0.8
+r = 50
 
 v_max = 20
 a_max = 60
 
-comm_range = 250
-radar_range = 200
+comm_range = 200
+radar_range = 150
 comm_prob = 0.3
 
 mul = 3

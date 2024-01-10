@@ -14,6 +14,24 @@ plt.style.use("seaborn")
 matplotlib.rc('xtick', labelsize=10) 
 matplotlib.rc('ytick', labelsize=10)
 
+n_vehicles = 4
+n = 6
+T = 430
+dt = 0.1
+N = int(T/dt)
+
+schedule = []
+v_cruise = 10
+v_easy_overtake = 5
+v_overtake = 12
+
+t_opt = 100
+times = np.arange(0, T, dt)
+freq = 0.36
+u_first_vehicle = np.sin(freq* times)
+
+street = Street(0, 0, 4500, 0)
+lanes = street.lanes
 
 
 def update_animation(frame):
@@ -44,25 +62,11 @@ def update_animation(frame):
         #                    marker = (3, 0, -90 + log_xydelta[i, frame, 2]*180/np.pi), markersize=10, linestyle='None')
     return scat
 
-n_vehicles = 4
-n = 6
-T = 430
-dt = 0.1
-N = int(T/dt)
-
-schedule = []
-v_cruise = 10
-v_easy_overtake = 5
-v_overtake = 12
-
 Q = np.eye(n) * conf.sigma_u**2
 Q_arr = []
 for i in range(n * n_vehicles):
     Q_arr.append(conf.sigma_u**2)
 Q_arr = np.diag(Q_arr)
-
-street = Street(0, 0, 4500, 0)
-lanes = street.lanes
 
 vehicles_list = [Vehicle(street, lanes[0], 0, v_cruise, dt)]
 [vehicles_list.append(Vehicle(street, lanes[0], vehicles_list[i].x - conf.r, v_cruise, dt)) for i in range(n_vehicles-1)]
@@ -95,10 +99,6 @@ for i in range(n_vehicles):
     P_DKF[i][:,:,0] = np.eye(n * n_vehicles) * 1e-5
     S_hat_DKF[i][:,0] = S_true
 
-t_opt = 100
-times = np.arange(0, T, dt)
-freq = 0.36
-u_first_vehicle = np.sin(freq* times)
 error = np.zeros((n_vehicles, N))
 for t in range(N-1):
 
@@ -271,7 +271,7 @@ for t in range(N-1):
         a[i] = H.T @ np.linalg.inv(R.copy()) @ zi
 
 
-    m=10
+    m=5
     for _ in range(m):
         Fstore = F.copy()
         aStore = a.copy()
@@ -291,7 +291,7 @@ for t in range(N-1):
         H = e.H_fun(S_hat_DKF[i][:,t+1]).full()
         nu = np.random.multivariate_normal(np.zeros((Q_arr.shape[0])), Q_arr).T
 
-        pred = e.f_fun(S_hat_DKF[i][:,t], initial_u, nu).full().flatten()
+        pred = e.f_fun(S_hat_DKF[i][:,t], initial_u, nu*0).full().flatten()
         
         M = np.linalg.inv(np.linalg.inv(P_DKF[i][:,:, t]) + F[i])
         S_hat_DKF[i][:, t+1] = pred + M @ (a[i]- F[i] @ S_hat_DKF[i][:, t])
