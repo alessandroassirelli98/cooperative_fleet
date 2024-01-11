@@ -70,7 +70,15 @@ Q_arr = np.diag(Q_arr)
 
 vehicles_list = [Vehicle(street, lanes[0], 0, v_cruise, dt)]
 [vehicles_list.append(Vehicle(street, lanes[0], vehicles_list[i].x - conf.r, v_cruise, dt)) for i in range(n_vehicles-1)]
-# vehicles_list[0].c1 = 100/1000
+# vehicles_list[0].c1 = 0.25/1000
+
+# for v in vehicles_list:
+#     v.c0 = np.random.randn(1)*0.2 + 0.3
+#     v.c0 = np.clip(v.c0, 0.1, 0.8)[0] /1000
+
+#     v.c1 = np.random.randn(1)*0.08 + 0.1
+#     v.c1 = np.clip(v.c1, 0.1, 0.8)[0] / 1000
+
 
 estimators_list = []
 PIDs = []
@@ -143,7 +151,7 @@ for t in range(N-1):
     D = A_COMM @ np.ones(n_vehicles).T
 
     # Optimal schedule for energy efficiency
-    if t==0 and conf.optimal_schedule: schedule = utils.compute_truck_scheduling(vehicles_list, ordered_vehicles, store=False)
+    if t==0 and conf.optimal_schedule: schedule = utils.compute_truck_scheduling(vehicles_list, ordered_vehicles, store=True)
 
     # Compute control actions:
     ordered_u = []
@@ -299,7 +307,7 @@ for t in range(N-1):
 
 
 
-np.savez('disagreement_m_' + str(m), consumption=disagreement_log)
+# np.savez('disagreement_m_' + str(m), consumption=disagreement_log)
 
 legend = []
 [legend.append("vehicle "+str(i)) for i in range(n_vehicles)]

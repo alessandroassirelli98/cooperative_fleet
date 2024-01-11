@@ -58,19 +58,24 @@ class Vehicle:
                         [0,0,1]])
         
         if lane == 1:
-            target = M01 @ np.array([self.street.lane_width, self.street.lane_width,1])
-            x_target = target[0]
-            y_target = target[1]
-            self.path = np.array([[self.x, self.y], 
-                                [x_target, y_target], 
-                                [self.lane.x_end, y_target]]) # Change lane
+            offset = self.street.R01 @ np.array([0, self.street.lane_width])
+            x_offset = offset[0,0]
+            y_offset = offset[0,1]
+
+            self.path = np.array([[self.lane.x_start + x_offset, self.lane.y_start + y_offset], 
+                                [self.lane.x_end + x_offset, self.lane.y_end + y_offset]]) # Change lane
+            
+            # target = M01 @ np.array([self.street.lane_width, self.street.lane_width,1])
+            # self.path = np.array([[self.x, self.y], 
+            #                     [x_target, y_target], 
+            #                     [self.lane.x_end, y_target]]) # Change lane
             self.which_lane = 1
+
         elif lane == 0 :
             target = M01 @ np.array([self.street.lane_width, self.street.lane_width,1])
             x_target = target[0]
             y_target = self.lane.y_end
-            self.path = np.array([[self.x, self.y], 
-                                [x_target, y_target], 
+            self.path = np.array([[self.lane.x_start, self.lane.y_start], 
                                 [self.lane.x_end, self.lane.y_end]]) # Change lane
             self.which_lane = 0
             
